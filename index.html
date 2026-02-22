@@ -1,0 +1,77 @@
+
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3F3356" />
+    <link rel="apple-touch-icon" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>TOPOGAN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+      * { -webkit-tap-highlight-color: transparent; }
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+      }
+
+      /* Transitions entre les vues */
+      .view-enter { opacity: 0; transform: translateY(10px); }
+      .view-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s ease-out; }
+      
+      @keyframes fade-slide-in {
+        from { opacity: 0; transform: translateX(-10px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      .animate-view { animation: fade-slide-in 0.4s ease-out forwards; }
+      
+      @keyframes bounce-slow {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+      }
+      .animate-bounce-slow { animation: bounce-slow 3s infinite ease-in-out; }
+
+      .leaflet-popup-content-wrapper { background: #fff; border-radius: 8px; box-shadow: 0 3px 14px rgba(0,0,0,0.4); }
+      .dark .leaflet-popup-content-wrapper { background: #374151; color: #f3f4f6; }
+      .map-popup button { margin-top: 8px; padding: 4px 8px; border: 1px solid #ef4444; background-color: #fee2e2; color: #b91c1c; border-radius: 4px; cursor: pointer; font-size: 12px; }
+      .map-distance-tooltip { background-color: rgba(255, 255, 255, 0.9); border: 1px solid #718096; border-radius: 4px; padding: 2px 6px; font-size: 12px; font-weight: 600; }
+      .dark .map-distance-tooltip { background-color: rgba(45, 55, 72, 0.9); border-color: #a0aec0; color: #e2e8f0; }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+      .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
+    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
+    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1/dist/jspdf.es.min.js",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dnd": "https://aistudiocdn.com/react-dnd@^16.0.1",
+    "d3": "https://aistudiocdn.com/d3@^7.9.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-dnd-html5-backend": "https://aistudiocdn.com/react-dnd-html5-backend@^16.0.1",
+    "immutability-helper": "https://aistudiocdn.com/immutability-helper@^3.1.1",
+    "jszip": "https://aistudiocdn.com/jszip@^3.10.1",
+    "shpjs": "https://unpkg.com/shpjs@latest/dist/shp.js"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="h-full bg-gray-50 dark:bg-gray-900 overflow-hidden select-none">
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

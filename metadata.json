@@ -1,0 +1,8 @@
+{
+  "name": "TOPOGAN pv ",
+  "description": "Une application pour les calculs topographiques.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}

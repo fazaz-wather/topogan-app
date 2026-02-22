@@ -1,0 +1,606 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import * as L from 'leaflet';
+import { Point, Annotation, AppSettings, MapLayersVisibility, MapTool, Notification, Parcel } from '../types';
+import { calculateDistanceBetweenPoints, calculateBearing, calculatePolygonArea } from '../services/topographyService';
+import { convertDistance, getDistanceUnitLabel, formatArea } from '../services/unitConversionService';
+import { coordinateTransformationService } from '../services/coordinateTransformationService';
+import ContextMenu from './ContextMenu';
+
+// Define types for label state
+interface LabelData {
+    points: Record<number, string>; // pointId -> custom label text
+    distances: Record<string, string>; // segment key -> custom label text
+}
+
+interface MapProps {
+  parcels: Parcel[];
+  activeParcelId: number | null;
+  annotations?: Annotation[];
+  settings: AppSettings;
+  onMapClick?: (coords: { x: number; y: number }, map: L.Map, snappedToPoint?: Point) => void;
+  onMapDoubleClick?: (event: L.LeafletMouseEvent) => void;
+  onUpdatePoint?: (pointId: number, coords: { x: number; y: number }) => void;
+  onMapContextMenu?: (event: L.LeafletMouseEvent, entity?: Point | { isAnnotation: true; id: number }) => void;
+  onDeletePoint?: (pointId: number) => void;
+  onTakePhoto?: (pointId: number) => void;
+  onUpdateAnnotation?: (annotationId: number, newText: string) => void;
+  onDeleteAnnotation?: (annotationId: number) => void;
+  layersVisibility: MapLayersVisibility;
+  activeTool: MapTool;
+  measurePoints: {x: number, y: number}[];
+  area?: number; 
+  highlightedPointId?: number | null;
+  onCenterChange?: (coords: { lat: number, lng: number }) => void;
+  setNotification?: (message: string, type: Notification['type']) => void;
+  goTo?: { point: { x: number; y: number }, key: number } | null;
+  fitToParcel?: { id: number; key: number } | null;
+  isDrawing?: boolean;
+  sketchItems?: { id: number; type: 'line' | 'area' | 'angle'; points: { x: number; y: number }[] }[];
+  pendingAnnotation?: { x: number; y: number } | null;
+  onSaveNewAnnotation?: (text: string) => void;
+  isTracking?: boolean;
+  onTrackingChange?: (tracking: boolean) => void;
+}
+
+
+// Helper function to convert degrees to radians
+const toRadians = (deg: number): number => deg * Math.PI / 180;
+
+// Make L global for legacy plugins like leaflet-compass
+if (typeof window !== 'undefined') {
+  (window as any).L = L;
+}
+
+// Fix for default icon issue
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const TILE_LAYERS = {
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap',
+    maxNativeZoom: 19,
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxNativeZoom: 19,
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri',
+    maxNativeZoom: 19,
+  },
+  terrain: {
+      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM',
+      maxNativeZoom: 17,
+  },
+  google_hybrid: {
+    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google Maps',
+    maxNativeZoom: 22,
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+  }
+};
+
+
+const Map: React.FC<MapProps> = ({ parcels, activeParcelId, annotations = [], settings, onMapClick, onMapDoubleClick, onUpdatePoint, onMapContextMenu, onDeletePoint, onUpdateAnnotation, onDeleteAnnotation, layersVisibility, activeTool, measurePoints, area, highlightedPointId, onCenterChange, setNotification, goTo, fitToParcel, isDrawing = false, pendingAnnotation, onSaveNewAnnotation, isTracking: isTrackingProp, onTrackingChange }) => {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const dataLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
+  const measureLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
+  const previewLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
+  const highlightLayerGroupRef = useRef<L.LayerGroup>(L.layerGroup());
+  const locationLayerRef = useRef<L.LayerGroup>(L.layerGroup());
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const scaleTextControlRef = useRef<L.Control & { _div?: HTMLElement } | null>(null);
+  const coordsControlRef = useRef<L.Control & { _div?: HTMLElement } | null>(null);
+  
+  const snapHighlightLayerRef = useRef<L.LayerGroup | null>(null);
+  const ghostLineRef = useRef<L.Polyline | null>(null);
+  const segmentTooltipRef = useRef<L.Tooltip | null>(null);
+  const [snappedPoint, setSnappedPoint] = useState<Point | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(15);
+  const [customLabels, setCustomLabels] = useState<LabelData>({ points: {}, distances: {} });
+
+  // Persistent references for GPS markers to avoid duplication during effect re-runs
+  const gpsMarkerRef = useRef<L.Marker | null>(null);
+  const gpsAccuracyRef = useRef<L.Circle | null>(null);
+
+  const isTracking = isTrackingProp || false;
+
+  useEffect(() => {
+    try {
+      const savedLabels = localStorage.getItem('topogan-map-custom-labels');
+      if (savedLabels) setCustomLabels(JSON.parse(savedLabels));
+    } catch (e) { console.error(e); }
+  }, []);
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('topogan-map-custom-labels', JSON.stringify(customLabels));
+    } catch (e) { console.error(e); }
+  }, [customLabels]);
+
+
+  // Initialization Effect
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (container && !mapRef.current) {
+        // DEFAULT LOCATION SET TO AGADIR (CENTER OF LAMBERT SUD ZONE)
+        let initialCenter: L.LatLngExpression = [30.4277, -9.5981]; 
+        let initialZoom = 9;
+
+        try {
+            const savedMapState = localStorage.getItem('topogan-map-state');
+            if (savedMapState) {
+                const { lat, lng, zoom } = JSON.parse(savedMapState);
+                initialCenter = [lat, lng];
+                initialZoom = zoom;
+            }
+        } catch (e) { console.error(e); }
+
+        const map = L.map(container, {
+            center: initialCenter,
+            zoom: initialZoom,
+            minZoom: 2,
+            maxZoom: 24,
+            zoomControl: false,
+            zoomSnap: 0.1, 
+            zoomDelta: 1, 
+            wheelPxPerZoomLevel: 60,
+            tap: false,
+        });
+
+        map.attributionControl.setPrefix(false);
+        mapRef.current = map;
+        setZoomLevel(map.getZoom());
+        
+        dataLayerGroupRef.current.addTo(map);
+        measureLayerGroupRef.current.addTo(map);
+        previewLayerGroupRef.current.addTo(map);
+        highlightLayerGroupRef.current.addTo(map);
+        locationLayerRef.current.addTo(map);
+        snapHighlightLayerRef.current = L.layerGroup().addTo(map);
+
+        const resizeObserver = new ResizeObserver(() => map.invalidateSize());
+        resizeObserver.observe(container);
+
+        // Professional Coords Control
+        const coordsControl = new L.Control({ position: 'bottomright' });
+        coordsControl.onAdd = function() {
+          const div = L.DomUtil.create('div', 'leaflet-control-coordinates');
+          div.innerHTML = "Initialisation...";
+          (this as any)._div = div;
+          return div;
+        };
+        coordsControl.addTo(map);
+        coordsControlRef.current = coordsControl;
+        
+        // Custom Scale Text
+        const ScaleTextControl = L.Control.extend({
+            options: { position: 'bottomright' },
+            onAdd: function() {
+                const div = L.DomUtil.create('div', 'leaflet-control-custom-scale');
+                div.innerHTML = "Echelle";
+                (this as any)._div = div;
+                return div;
+            }
+        });
+        const scaleTextControl = new ScaleTextControl();
+        map.addControl(scaleTextControl);
+        scaleTextControlRef.current = scaleTextControl;
+        
+        const updateScale = () => {
+            if (!mapRef.current || !scaleTextControlRef.current?._div) return;
+            const zoom = mapRef.current.getZoom();
+            const center = mapRef.current.getCenter();
+            const metersPerPixel = 40075016.686 * Math.cos(toRadians(center.lat)) / Math.pow(2, zoom + 8);
+            const scaleDenominator = metersPerPixel * (96 / 0.0254);
+            scaleTextControlRef.current._div.innerHTML = `Echelle ~ 1:${Math.round(scaleDenominator).toLocaleString('fr-FR')}`;
+        };
+
+        map.on('zoomend moveend', updateScale);
+        map.on('zoomend', () => setZoomLevel(map.getZoom()));
+        updateScale();
+
+        return () => {
+            resizeObserver.unobserve(container);
+            map.remove();
+        };
+    }
+    return undefined;
+  }, []);
+
+  // GESTION DU CURSEUR DYNAMIQUE
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const container = map.getContainer();
+    
+    if (activeTool !== 'pan') {
+        container.style.cursor = 'crosshair';
+    } else {
+        container.style.cursor = '';
+    }
+  }, [activeTool]);
+
+  // Tracking Logic - FIXED & IMPROVED
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const onLocationFound = (e: L.LocationEvent) => {
+        // FILTER: Ignore noisy updates if we already have a reasonably accurate fix
+        if (e.accuracy > 50 && gpsMarkerRef.current) {
+            console.debug('GPS: Update filtered (accuracy too low):', e.accuracy, 'm');
+            return;
+        }
+
+        const latlng = e.latlng;
+        const radius = e.accuracy;
+
+        if (!gpsMarkerRef.current) {
+            // First fix: create marker and accuracy circle
+            const icon = L.divIcon({ 
+                className: 'user-location-marker-container', 
+                html: '<div class="user-location-marker"></div><div class="user-location-pulse"></div>',
+                iconSize: [20, 20] 
+            });
+            gpsMarkerRef.current = L.marker(latlng, { icon, interactive: false, pane: 'markerPane', zIndexOffset: 1000 }).addTo(locationLayerRef.current);
+            gpsAccuracyRef.current = L.circle(latlng, { 
+                radius, 
+                weight: 1, 
+                color: '#3b82f6', 
+                fillColor: '#3b82f6', 
+                fillOpacity: 0.1,
+                className: 'user-location-accuracy', 
+                interactive: false 
+            }).addTo(locationLayerRef.current);
+            
+            // Initial focus
+            map.flyTo(latlng, Math.max(map.getZoom(), 18));
+            
+            if (setNotification) {
+                setNotification(`Signal GPS acquis (${Math.round(radius)}m)`, 'info');
+            }
+        } else {
+            // Update existing markers
+            gpsMarkerRef.current.setLatLng(latlng);
+            gpsAccuracyRef.current?.setLatLng(latlng).setRadius(radius);
+            
+            // SUIVI: Following behavior
+            map.panTo(latlng);
+            
+            // Adjust accuracy color dynamically
+            if (gpsAccuracyRef.current) {
+                const color = radius < 10 ? '#3b82f6' : (radius < 25 ? '#10b981' : '#f59e0b');
+                gpsAccuracyRef.current.setStyle({ color, fillColor: color });
+            }
+        }
+    };
+
+    const onLocationError = (e: L.ErrorEvent) => {
+        console.warn('GPS Error:', e.message);
+        if (setNotification) {
+            setNotification("Erreur de géo-localisation : " + e.message, 'error');
+        }
+        // Force stop on critical errors
+        if (e.code === 1) { // Permission denied
+            onTrackingChange?.(false);
+        }
+    };
+
+    if (isTracking) {
+        map.on('locationfound', onLocationFound);
+        map.on('locationerror', onLocationError);
+        
+        map.locate({ 
+            watch: true, 
+            enableHighAccuracy: true, 
+            maximumAge: 0,
+            timeout: 20000 
+        });
+    } else {
+        map.stopLocate();
+        map.off('locationfound', onLocationFound);
+        map.off('locationerror', onLocationError);
+        locationLayerRef.current.clearLayers();
+        gpsMarkerRef.current = null;
+        gpsAccuracyRef.current = null;
+    }
+
+    return () => {
+        map.stopLocate();
+        map.off('locationfound', onLocationFound);
+        map.off('locationerror', onLocationError);
+    }
+  }, [isTracking, setNotification, onTrackingChange]);
+
+  // Tile Update
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const selectedLayer = TILE_LAYERS[settings.mapTileLayer as keyof typeof TILE_LAYERS] || TILE_LAYERS.osm;
+    if (tileLayerRef.current) mapRef.current.removeLayer(tileLayerRef.current);
+    tileLayerRef.current = L.tileLayer(selectedLayer.url, { 
+        attribution: selectedLayer.attribution, 
+        maxNativeZoom: selectedLayer.maxNativeZoom,
+        maxZoom: 24,
+        subdomains: (selectedLayer as any).subdomains || 'abc'
+    }).addTo(mapRef.current).bringToBack();
+  }, [settings.mapTileLayer]);
+
+  // Coordinate Display Update
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const updateCoords = (e: L.LeafletMouseEvent) => {
+        if (!coordsControlRef.current?._div) return;
+        const { coordinateSystem, precision } = settings;
+        let html = '';
+        if (coordinateSystem === 'wgs84') {
+            html = `<div class="coord-line"><span class="coord-label active">WGS84</span><span class="coord-value">${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}</span></div>`;
+        } else {
+            const transformed = coordinateTransformationService.transform({ x: e.latlng.lng, y: e.latlng.lat }, 'wgs84', coordinateSystem);
+            if (transformed) {
+                html = `<div class="coord-line"><span class="coord-label active">${coordinateSystem.toUpperCase()}</span><span class="coord-value">X:${transformed.x.toFixed(precision)} Y:${transformed.y.toFixed(precision)}</span></div>`;
+            }
+        }
+        coordsControlRef.current._div.innerHTML = html;
+    };
+
+    map.on('mousemove', updateCoords);
+    return () => { map.off('mousemove', updateCoords); }
+  }, [settings]);
+
+  // Interaction Logic
+  useEffect(() => {
+      const map = mapRef.current;
+      if(!map) return;
+
+      const handleClick = (e: L.LeafletMouseEvent) => {
+        const coords = snappedPoint ? { x: snappedPoint.x, y: snappedPoint.y } : { x: e.latlng.lng, y: e.latlng.lat };
+        if (onMapClick) onMapClick(coords, map, snappedPoint || undefined);
+      };
+      
+      const handleContextMenu = (e: L.LeafletMouseEvent) => onMapContextMenu && onMapContextMenu(e);
+
+      map.on('click', handleClick);
+      map.on('dblclick', (e) => onMapDoubleClick && onMapDoubleClick(e));
+      map.on('contextmenu', handleContextMenu);
+
+      return () => {
+          map.off('click', handleClick);
+          map.off('dblclick');
+          map.off('contextmenu', handleContextMenu);
+      };
+  }, [activeTool, isDrawing, onMapClick, onMapDoubleClick, onMapContextMenu, snappedPoint]);
+
+  // Data Rendering
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const { precision, mapMarkerStyle, distanceUnit, areaUnit } = settings;
+    const zoom = zoomLevel;
+    const scale = zoom < 14 ? 0 : (zoom < 16 ? 0.7 : (zoom < 18 ? 0.9 : 1.1));
+    const labelStyle = `transform: translate(-50%, -50%) scale(${scale}); opacity: ${scale > 0 ? 1 : 0};`;
+
+    dataLayerGroupRef.current.clearLayers();
+    
+    parcels.forEach(parcel => {
+        if (!parcel.isVisible || parcel.points.length === 0) return;
+        const color = parcel.color;
+        const isActive = parcel.id === activeParcelId;
+
+        if (layersVisibility.polygon && parcel.points.length > 1) {
+            const latLngs = parcel.points.map(p => L.latLng(p.y, p.x));
+            const isClosed = parcel.points.length > 2;
+            
+            L.polyline(isClosed ? [...latLngs, latLngs[0]] : latLngs, { color, weight: isActive ? 3 : 1.5, interactive: false }).addTo(dataLayerGroupRef.current);
+            
+            if (isClosed) {
+                L.polygon(latLngs, { color, weight: 0, fillColor: color, fillOpacity: 0.1, interactive: false }).addTo(dataLayerGroupRef.current);
+                const area = calculatePolygonArea(parcel.points, 'wgs84');
+                const areaText = formatArea(area, areaUnit, precision);
+                const areaIcon = L.divIcon({ 
+                    html: `<div class="map-area-label" style="${labelStyle}">${areaText}</div>`, 
+                    className: 'leaflet-div-icon-transparent' 
+                });
+                L.marker(L.latLngBounds(latLngs).getCenter(), { icon: areaIcon, interactive: false }).addTo(dataLayerGroupRef.current);
+            }
+        }
+
+        if (layersVisibility.points) {
+            parcel.points.forEach((p, idx) => {
+                let marker: L.CircleMarker | L.Marker;
+                const pointIcon = L.divIcon({
+                    html: `<div class="map-label-base" style="${labelStyle}">B${idx+1}</div>`,
+                    className: 'map-point-label-container',
+                    iconAnchor: [0, 0]
+                });
+
+                if (mapMarkerStyle === 'circle') {
+                    marker = L.circleMarker([p.y, p.x], { 
+                        radius: isActive ? 6 : 4, color, weight: 2, fillColor: 'white', fillOpacity: 1 
+                    });
+                } else {
+                    marker = L.marker([p.y, p.x], { draggable: isActive && !!onUpdatePoint });
+                }
+
+                marker.addTo(dataLayerGroupRef.current);
+                L.marker([p.y, p.x], { icon: pointIcon, interactive: false }).addTo(dataLayerGroupRef.current);
+
+                if (isActive && onUpdatePoint && marker instanceof L.Marker) {
+                    marker.on('dragend', (e) => {
+                        const newPos = e.target.getLatLng();
+                        onUpdatePoint(p.id, { x: newPos.lng, y: newPos.lat });
+                    });
+                }
+            });
+        }
+    });
+
+  }, [parcels, activeParcelId, settings, layersVisibility, zoomLevel]);
+
+  // Measurement & Creation Preview Rendering
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    previewLayerGroupRef.current.clearLayers();
+    
+    const isMeasureOrCreationTool = activeTool.startsWith('measure_') || activeTool === 'polygon';
+    const color = activeTool === 'polygon' ? '#3b82f6' : '#f59e0b';
+
+    if (isMeasureOrCreationTool && measurePoints.length > 0) {
+        measurePoints.forEach((p, i) => {
+            L.circleMarker([p.y, p.x], { 
+                radius: 5, 
+                color: color, 
+                weight: 2, 
+                fillColor: 'white', 
+                fillOpacity: 1 
+            }).addTo(previewLayerGroupRef.current);
+            
+            const labelIcon = L.divIcon({
+                html: `<div class="map-label-base" style="background-color: ${color}; color: white; border:none; transform: translate(10px, -10px); font-size:9px;">${i+1}</div>`,
+                className: 'leaflet-div-icon-transparent'
+            });
+            L.marker([p.y, p.x], { icon: labelIcon, interactive: false }).addTo(previewLayerGroupRef.current);
+        });
+
+        if (measurePoints.length > 1) {
+            const latlngs = measurePoints.map(p => L.latLng(p.y, p.x));
+            const isClosed = activeTool === 'measure_area' || activeTool === 'polygon';
+            
+            L.polyline(latlngs, { 
+                color: color, 
+                weight: 3, 
+                dashArray: '5, 5',
+                lineJoin: 'round'
+            }).addTo(previewLayerGroupRef.current);
+            
+            if (isClosed && measurePoints.length > 2) {
+                L.polygon(latlngs, { 
+                    color: color, 
+                    weight: 0, 
+                    fillColor: color, 
+                    fillOpacity: 0.15 
+                }).addTo(previewLayerGroupRef.current);
+                
+                L.polyline([latlngs[latlngs.length - 1], latlngs[0]], {
+                    color: color,
+                    weight: 1,
+                    dashArray: '2, 4',
+                    opacity: 0.6
+                }).addTo(previewLayerGroupRef.current);
+            }
+        }
+    }
+  }, [activeTool, measurePoints]);
+
+  // Snapping & Dynamic Highlights
+  useEffect(() => {
+    const map = mapRef.current;
+    const activeParcel = parcels.find(p => p.id === activeParcelId);
+    const isDrawingTool = activeTool === 'point' || activeTool === 'polygon' || activeTool.startsWith('measure_');
+    
+    if (!map || activeTool === 'pan') {
+        snapHighlightLayerRef.current?.clearLayers();
+        if (ghostLineRef.current) { previewLayerGroupRef.current.removeLayer(ghostLineRef.current); ghostLineRef.current = null; }
+        if (segmentTooltipRef.current) { map.removeLayer(segmentTooltipRef.current); segmentTooltipRef.current = null; }
+        return;
+    }
+
+    const onMouseMove = (e: L.LeafletMouseEvent) => {
+        snapHighlightLayerRef.current?.clearLayers();
+        let closest: Point | null = null;
+        let minDist = 20; // threshold in pixels
+
+        parcels.forEach(parcel => {
+            if (parcel.isVisible) {
+                parcel.points.forEach(p => {
+                    const d = map.latLngToContainerPoint(L.latLng(p.y, p.x)).distanceTo(map.latLngToContainerPoint(e.latlng));
+                    if (d < minDist) { minDist = d; closest = p; }
+                });
+            }
+        });
+
+        setSnappedPoint(closest);
+        const targetLatLng = closest ? L.latLng(closest.y, closest.x) : e.latlng;
+
+        if (closest) {
+            const snapIcon = L.divIcon({ className: 'map-snap-highlight', iconSize: [24, 24] });
+            L.marker([closest!.y, closest!.x], { icon: snapIcon, interactive: false }).addTo(snapHighlightLayerRef.current!);
+        }
+
+        if (isDrawingTool) {
+            let lastPoint: { x: number, y: number } | null = null;
+            
+            if (activeTool === 'point' && activeParcel && activeParcel.points.length > 0) {
+                const lp = activeParcel.points[activeParcel.points.length - 1];
+                lastPoint = { x: lp.x, y: lp.y };
+            } else if (measurePoints && measurePoints.length > 0) {
+                lastPoint = measurePoints[measurePoints.length - 1];
+            }
+
+            if (lastPoint) {
+                const anchorLatLng = L.latLng(lastPoint.y, lastPoint.x);
+                
+                if (!ghostLineRef.current) {
+                    ghostLineRef.current = L.polyline([anchorLatLng, targetLatLng], {
+                        color: activeTool === 'point' ? '#3b82f6' : '#f59e0b',
+                        weight: 2,
+                        dashArray: '5, 5',
+                        opacity: 0.7,
+                        interactive: false
+                    }).addTo(previewLayerGroupRef.current);
+                } else {
+                    ghostLineRef.current.setLatLngs([anchorLatLng, targetLatLng]);
+                }
+
+                const distanceMeters = calculateDistanceBetweenPoints(
+                    { x: lastPoint.x, y: lastPoint.y, id: 0 },
+                    { x: targetLatLng.lng, y: targetLatLng.lat, id: 0 },
+                    'wgs84'
+                );
+                const displayDistance = convertDistance(distanceMeters, settings.distanceUnit);
+                const unitLabel = getDistanceUnitLabel(settings.distanceUnit);
+                const content = `${displayDistance.toFixed(settings.precision)} ${unitLabel}`;
+
+                if (!segmentTooltipRef.current) {
+                    segmentTooltipRef.current = L.tooltip({
+                        permanent: true,
+                        direction: 'top',
+                        offset: L.point(0, -10),
+                        className: 'map-distance-tooltip'
+                    }).setLatLng(targetLatLng).setContent(content).addTo(map);
+                } else {
+                    segmentTooltipRef.current.setLatLng(targetLatLng).setContent(content);
+                }
+            } else {
+                if (ghostLineRef.current) { previewLayerGroupRef.current.removeLayer(ghostLineRef.current); ghostLineRef.current = null; }
+                if (segmentTooltipRef.current) { map.removeLayer(segmentTooltipRef.current); segmentTooltipRef.current = null; }
+            }
+        }
+    };
+
+    map.on('mousemove', onMouseMove);
+    return () => { 
+        map.off('mousemove', onMouseMove); 
+        snapHighlightLayerRef.current?.clearLayers();
+        if (ghostLineRef.current) { previewLayerGroupRef.current.removeLayer(ghostLineRef.current); ghostLineRef.current = null; }
+        if (segmentTooltipRef.current) { map.removeLayer(segmentTooltipRef.current); segmentTooltipRef.current = null; }
+    }
+  }, [parcels, activeParcelId, activeTool, measurePoints, settings]);
+
+  return <div ref={mapContainerRef} className="w-full h-full" />;
+};
+
+export default Map;

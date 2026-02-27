@@ -40,10 +40,10 @@ const CoordinateInput: React.FC<CoordinateInputProps> = ({ onAddPoint, settings,
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="flex flex-col sm:flex-row gap-2">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
-          <label htmlFor="x-coord" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{labels.x}</label>
+          <label htmlFor="x-coord" className="bsport-label">{labels.x}</label>
           <input
             id="x-coord"
             type="number"
@@ -51,12 +51,12 @@ const CoordinateInput: React.FC<CoordinateInputProps> = ({ onAddPoint, settings,
             value={x}
             onChange={(e) => setX(e.target.value)}
             placeholder={labels.xPlaceholder}
-            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="bsport-input"
             required
           />
         </div>
         <div className="flex-1">
-          <label htmlFor="y-coord" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{labels.y}</label>
+          <label htmlFor="y-coord" className="bsport-label">{labels.y}</label>
           <input
             id="y-coord"
             type="number"
@@ -64,16 +64,16 @@ const CoordinateInput: React.FC<CoordinateInputProps> = ({ onAddPoint, settings,
             value={y}
             onChange={(e) => setY(e.target.value)}
             placeholder={labels.yPlaceholder}
-            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="bsport-input"
             required
           />
         </div>
       </div>
       <button 
         type="submit" 
-        className="w-full bg-[#3F3356] text-white font-bold py-3 px-6 rounded-full hover:bg-[#2a223a] shadow-lg transform active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2"
+        className="bsport-btn-primary w-full"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
         </svg>
         <span>Ajouter un Sommet</span>

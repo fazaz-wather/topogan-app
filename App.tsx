@@ -55,7 +55,17 @@ const App: React.FC = () => {
       canRedo: canRedoParcels 
   } = useHistoryState<Parcel[]>(initialParcels);
 
-  const [activeParcelId, setActiveParcelId] = useState<number | null>(1);
+  const [activeParcelId, setActiveParcelId] = useState<number | null>(() => {
+      const saved = localStorage.getItem('topogan-active-parcel');
+      return saved ? JSON.parse(saved) : 1;
+  });
+
+  useEffect(() => {
+      if (activeParcelId !== null) {
+          localStorage.setItem('topogan-active-parcel', JSON.stringify(activeParcelId));
+      }
+  }, [activeParcelId]);
+
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [settings, setSettings] = useState<AppSettings>(() => {
       const saved = localStorage.getItem('topogan-settings');

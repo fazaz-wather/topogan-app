@@ -23,28 +23,28 @@ const ToolButton: React.FC<ToolButtonProps> = ({ label, onClick, isActive, disab
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`w-full flex flex-col items-center justify-center p-2 rounded-md text-xs font-semibold transition-colors duration-200
-      ${isActive ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}
+    className={`w-full flex flex-col items-center justify-center p-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200
+      ${isActive ? 'bg-[#4F46E5] text-white shadow-md shadow-[#4F46E5]/20' : 'bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}
       ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
     `}
   >
-    {icon}
-    <span className="mt-1 text-center">{label}</span>
+    <div className="mb-1.5">{icon}</div>
+    <span className="text-center">{label}</span>
   </button>
 );
 
 const FormInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = (props) => (
-    <input {...props} className={`mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm ${props.className}`} />
+    <input {...props} className={`bsport-input ${props.className || ''}`} />
 );
 
 const FormSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) => (
-    <select {...props} className={`mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md text-sm ${props.className}`}>
+    <select {...props} className={`bsport-select ${props.className || ''}`}>
         {props.children}
     </select>
 );
 
 const FormButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
-    <button {...props} className={`w-full text-sm bg-green-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed ${props.className}`}>
+    <button {...props} className={`bsport-btn-primary w-full ${props.className || ''}`}>
         {props.children}
     </button>
 );

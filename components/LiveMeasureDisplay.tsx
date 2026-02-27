@@ -58,14 +58,14 @@ const LiveMeasureDisplay: React.FC<LiveMeasureDisplayProps> = ({ data, settings 
 
     return (
         <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 z-[400] transition-all duration-500 ease-out">
-            <div className="flex items-center bg-gray-900/85 backdrop-blur-xl text-white rounded-2xl px-6 py-4 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-white/10 space-x-8">
+            <div className="flex items-center bg-[#0F172A]/90 backdrop-blur-xl text-white rounded-2xl px-6 py-4 shadow-2xl border border-white/10 space-x-8">
                 {items.map((item, index) => (
                     <div key={index} className="flex flex-col items-center min-w-[100px] relative group">
-                        <div className="flex items-center gap-1.5 mb-1 text-blue-400 dark:text-blue-300">
+                        <div className="flex items-center gap-1.5 mb-1 text-[#818CF8] dark:text-[#A5B4FC]">
                             {item.icon}
-                            <span className="text-[9px] uppercase font-black tracking-[0.15em] opacity-70 group-hover:opacity-100 transition-opacity">{item.label}</span>
+                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-80 group-hover:opacity-100 transition-opacity">{item.label}</span>
                         </div>
-                        <span className="text-sm font-mono font-black whitespace-nowrap bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                        <span className="text-sm font-mono font-bold whitespace-nowrap text-white">
                             {item.value}
                         </span>
                         {index < items.length - 1 && (
@@ -75,7 +75,7 @@ const LiveMeasureDisplay: React.FC<LiveMeasureDisplayProps> = ({ data, settings 
                 ))}
             </div>
             {/* Visual indicator bar at the bottom */}
-            <div className="h-1.5 w-32 bg-blue-600 mx-auto rounded-b-full shadow-lg shadow-blue-600/20"></div>
+            <div className="h-1.5 w-32 bg-[#4F46E5] mx-auto rounded-b-full shadow-lg shadow-[#4F46E5]/20"></div>
         </div>
     );
 };

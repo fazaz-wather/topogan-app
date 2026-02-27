@@ -34,13 +34,13 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, options, onClose }) => 
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] animate-fade-in"
+      className="fixed z-[9999] bg-white dark:bg-[#0F172A] rounded-xl shadow-2xl border border-[#F1F5F9] dark:border-[#1E293B] py-1.5 min-w-[200px] animate-fade-in"
       style={{ top: y, left: x }}
     >
       {options.map((option, index) => (
         <button
           key={index}
-          className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors ${option.disabled ? 'opacity-50 cursor-not-allowed' : 'text-gray-700 dark:text-gray-200'}`}
+          className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-3 hover:bg-[#F8FAFC] dark:hover:bg-[#1E293B]/50 transition-colors ${option.disabled ? 'opacity-50 cursor-not-allowed' : 'text-[#475569] dark:text-[#CBD5E1]'}`}
           onClick={() => {
             if (!option.disabled) {
                 option.action();
@@ -49,8 +49,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, options, onClose }) => 
           }}
           disabled={option.disabled}
         >
-          <span className="text-gray-500 dark:text-gray-400 w-4 h-4 flex items-center justify-center">{icons[option.icon]}</span>
-          <span className="font-medium">{option.label}</span>
+          <span className="text-[#94A3B8] dark:text-[#64748B] w-4 h-4 flex items-center justify-center">{icons[option.icon]}</span>
+          <span className="font-semibold">{option.label}</span>
         </button>
       ))}
     </div>

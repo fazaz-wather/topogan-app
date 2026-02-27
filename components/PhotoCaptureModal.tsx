@@ -163,10 +163,10 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({ onCapture, onClos
                             <p className="mb-6 text-gray-300 text-sm">{error}</p>
                             <button 
                                 onClick={triggerFileInput} 
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-colors w-full flex items-center justify-center gap-2"
+                                className="bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold py-3 px-6 rounded-xl transition-colors w-full flex items-center justify-center gap-2 shadow-lg shadow-[#4F46E5]/20"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                 </svg>
                                 Importer une image
                             </button>
@@ -189,22 +189,22 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({ onCapture, onClos
                 <div className="bg-black/80 p-6 flex justify-around items-center w-full pb-safe">
                     {!capturedImage ? (
                         <>
-                            <button onClick={onClose} className="text-white p-4 text-sm font-medium">Annuler</button>
+                            <button onClick={onClose} className="text-white p-4 text-sm font-semibold hover:text-gray-300 transition-colors">Annuler</button>
                             
                             {!error && (
                                 <button 
                                     onClick={takePhoto} 
                                     disabled={!isStreamReady}
-                                    className={`w-16 h-16 rounded-full border-4 border-white bg-white/20 flex items-center justify-center transition-transform active:scale-95 ${!isStreamReady ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                    className={`w-16 h-16 rounded-full border-4 border-white bg-white/20 flex items-center justify-center transition-all active:scale-95 hover:bg-white/30 ${!isStreamReady ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
-                                    <div className="w-12 h-12 bg-white rounded-full"></div>
+                                    <div className="w-12 h-12 bg-white rounded-full shadow-inner"></div>
                                 </button>
                             )}
 
                             {!error ? (
-                                <button onClick={triggerFileInput} className="text-white p-4" title="Importer">
+                                <button onClick={triggerFileInput} className="text-white p-4 hover:text-gray-300 transition-colors" title="Importer">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                     </svg>
                                 </button>
                             ) : (
@@ -213,8 +213,8 @@ const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({ onCapture, onClos
                         </>
                     ) : (
                         <>
-                            <button onClick={handleRetake} className="text-white px-4 py-2 rounded border border-gray-500 text-sm hover:bg-gray-800 transition-colors">Reprendre</button>
-                            <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition-colors">Enregistrer</button>
+                            <button onClick={handleRetake} className="text-white px-5 py-2.5 rounded-xl border border-gray-500 text-sm font-semibold hover:bg-gray-800 transition-colors">Reprendre</button>
+                            <button onClick={handleSave} className="bg-[#4F46E5] hover:bg-[#4338CA] text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-[#4F46E5]/20 transition-colors">Enregistrer</button>
                         </>
                     )}
                 </div>

@@ -57,28 +57,28 @@ const SurfaceCalculatorView: React.FC<SurfaceCalculatorViewProps> = (props) => {
     }, [points, settings.coordinateSystem]);
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
+        <div className="flex flex-col h-full bg-[#F8FAFC] dark:bg-[#0F172A] overflow-hidden">
             {/* Header Summary Card */}
             <div className="flex-shrink-0 p-4 pb-0">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
+                <div className="bsport-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
                     <div>
-                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Parcelle Active</h2>
+                        <h2 className="bsport-label mb-1">Parcelle Active</h2>
                         <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: activeParcel?.color || '#ccc' }}></span>
-                            <span className="text-lg font-bold text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-xs">{activeParcel?.name || 'Aucune parcelle'}</span>
+                            <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: activeParcel?.color || '#ccc' }}></span>
+                            <span className="text-lg font-bold text-[#0F172A] dark:text-white truncate max-w-[200px] sm:max-w-xs">{activeParcel?.name || 'Aucune parcelle'}</span>
                         </div>
                     </div>
                     
-                    <div className="flex flex-row w-full md:w-auto items-center gap-4 md:gap-6 divide-x divide-gray-100 dark:divide-gray-700">
+                    <div className="flex flex-row w-full md:w-auto items-center gap-4 md:gap-6 divide-x divide-[#E2E8F0] dark:divide-[#334155]">
                         <div className="px-2 md:px-4 first:pl-0 text-left md:text-right flex-1 md:flex-none">
-                            <div className="text-xs text-gray-500 font-medium uppercase">Surface</div>
-                            <div className="text-lg md:text-xl font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                            <div className="bsport-label">Surface</div>
+                            <div className="text-lg md:text-xl font-black text-[#4F46E5] whitespace-nowrap">
                                 {results ? formatArea(results.area, settings.areaUnit, settings.precision) : '---'}
                             </div>
                         </div>
                         <div className="px-2 md:px-4 text-left md:text-right flex-1 md:flex-none">
-                            <div className="text-xs text-gray-500 font-medium uppercase">Périmètre</div>
-                            <div className="text-base md:text-lg font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            <div className="bsport-label">Périmètre</div>
+                            <div className="text-base md:text-lg font-bold text-[#0F172A] dark:text-gray-300 whitespace-nowrap">
                                 {perimeter > 0 ? `${convertDistance(perimeter, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}` : '---'}
                             </div>
                         </div>
@@ -88,24 +88,24 @@ const SurfaceCalculatorView: React.FC<SurfaceCalculatorViewProps> = (props) => {
 
             {/* Navigation Tabs (Mobile Only) */}
             <div className="flex-shrink-0 px-4 mt-4 lg:hidden">
-                <div className="flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg">
+                <div className="flex space-x-1 bg-[#F1F5F9] dark:bg-[#1E293B] p-1 rounded-xl">
                     <button
                         onClick={() => setActiveTab('data')}
-                        className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'data' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                        className={`flex-1 flex items-center justify-center py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'data' ? 'bg-white dark:bg-[#0F172A] text-[#4F46E5] shadow-sm' : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                     >
                         <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                         Données
                     </button>
                     <button
                         onClick={() => setActiveTab('tools')}
-                        className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'tools' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                        className={`flex-1 flex items-center justify-center py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'tools' ? 'bg-white dark:bg-[#0F172A] text-[#4F46E5] shadow-sm' : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                     >
                         <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
                         Calculs
                     </button>
                     <button
                         onClick={() => setActiveTab('results')}
-                        className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'results' ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                        className={`flex-1 flex items-center justify-center py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'results' ? 'bg-white dark:bg-[#0F172A] text-[#4F46E5] shadow-sm' : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                     >
                         <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         Rapports
@@ -144,8 +144,8 @@ const SurfaceCalculatorView: React.FC<SurfaceCalculatorViewProps> = (props) => {
                     <div className="flex-1 space-y-6">
                         {/* Tools Section */}
                         <div className={`${activeTab !== 'tools' ? 'hidden lg:block' : ''}`}>
-                            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">Outils Topographiques</h3>
+                            <div className="bsport-card">
+                                <h3 className="bsport-label mb-4 border-b border-[#E2E8F0] dark:border-[#334155] pb-2">Outils Topographiques</h3>
                                 <SurveyTools points={points} onAddPoints={(pts) => activeParcelId && parcelManager.addPoints(activeParcelId, pts)} />
                             </div>
                         </div>

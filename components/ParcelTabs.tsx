@@ -60,7 +60,18 @@ const ParcelTabs: React.FC<ParcelTabsProps> = ({ parcels, activeParcelId, setAct
                             <span className="truncate max-w-[100px]">{parcel.name}</span>
                         )}
                         <button 
-                            onClick={(e) => { e.stopPropagation(); parcelManager.deleteParcel(parcel.id); }}
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (parcels.length > 1) {
+                                    parcelManager.deleteParcel(parcel.id); 
+                                    if (activeParcelId === parcel.id) {
+                                        const remaining = parcels.filter(p => p.id !== parcel.id);
+                                        setActiveParcelId(remaining[0].id);
+                                    }
+                                } else {
+                                    parcelManager.deleteParcel(parcel.id); // Will trigger error notification
+                                }
+                            }}
                             className="ml-2 p-0.5 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Supprimer la parcelle"
                         >

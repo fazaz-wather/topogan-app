@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+    @apply bg-[#F8FAFC] text-[#0F172A];
+  }
+}
+
+@layer components {
+  /* Bsport inspired inputs */
+  .bsport-input {
+    @apply w-full bg-[#F1F5F9] border-transparent text-[#0F172A] text-sm rounded-xl p-3 focus:bg-white focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20 transition-all duration-200 outline-none placeholder-gray-400;
+  }
+  
+  .dark .bsport-input {
+    @apply bg-[#1E293B] text-white focus:bg-[#0F172A] focus:border-[#6366F1] focus:ring-[#6366F1]/30 placeholder-gray-500;
+  }
+
+  /* Bsport inspired labels */
+  .bsport-label {
+    @apply block text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-1.5;
+  }
+  
+  .dark .bsport-label {
+    @apply text-[#94A3B8];
+  }
+
+  /* Bsport inspired buttons */
+  .bsport-btn-primary {
+    @apply px-5 py-2.5 text-sm font-semibold text-white bg-[#4F46E5] rounded-xl hover:bg-[#4338CA] shadow-md shadow-[#4F46E5]/20 hover:shadow-lg hover:shadow-[#4F46E5]/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2;
+  }
+
+  .bsport-btn-secondary {
+    @apply px-5 py-2.5 text-sm font-semibold text-[#475569] bg-white border border-[#E2E8F0] rounded-xl hover:bg-[#F8FAFC] hover:border-[#CBD5E1] shadow-sm hover:shadow transition-all duration-200 flex items-center justify-center gap-2;
+  }
+  
+  .dark .bsport-btn-secondary {
+    @apply bg-[#1E293B] border-[#334155] text-[#E2E8F0] hover:bg-[#334155] hover:border-[#475569];
+  }
+
+  .bsport-btn-danger {
+    @apply px-5 py-2.5 text-sm font-semibold text-white bg-[#EF4444] rounded-xl hover:bg-[#DC2626] shadow-md shadow-[#EF4444]/20 hover:shadow-lg hover:shadow-[#EF4444]/30 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2;
+  }
+
+  /* Bsport inspired cards */
+  .bsport-card {
+    @apply bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-[#F1F5F9] p-5 transition-all duration-300;
+  }
+  
+  .dark .bsport-card {
+    @apply bg-[#0F172A] border-[#1E293B] shadow-[0_4px_20px_-5px_rgba(0,0,0,0.5)];
+  }
+
+  /* Bsport inspired select */
+  .bsport-select {
+    @apply w-full bg-[#F1F5F9] border-transparent text-[#0F172A] text-sm rounded-xl p-3 focus:bg-white focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20 transition-all duration-200 outline-none appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+  
+  .dark .bsport-select {
+    @apply bg-[#1E293B] text-white focus:bg-[#0F172A] focus:border-[#6366F1] focus:ring-[#6366F1]/30;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  }
+}

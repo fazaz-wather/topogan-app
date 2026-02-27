@@ -4,6 +4,7 @@ import L from 'leaflet';
 // CSS loaded via index.html
 // import 'leaflet/dist/leaflet.css';
 import { Parcel, Point, AppSettings, Annotation, MapTool, MapLayersVisibility, ImportedLayer } from '../types';
+import { coordinateTransformationService } from '../services/coordinateTransformationService';
 
 // Fix Leaflet default icons with CDN links
 const DefaultIcon = L.icon({
@@ -76,17 +77,39 @@ const Map: React.FC<MapProps> = React.memo(({
     const [annotationInputVisible, setAnnotationInputVisible] = useState(false);
     const [annotationText, setAnnotationText] = useState("");
     const annotationInputRef = useRef<HTMLInputElement>(null);
+    const coordsControlRef = useRef<L.Control & { _div?: HTMLElement } | null>(null);
 
     // Initialize Map
     useEffect(() => {
         if (!mapContainerRef.current || mapRef.current) return;
 
+        let initialCenter: [number, number] = [30.42, -9.60]; // Default center (Agadir approx)
+        let initialZoom = 13;
+
+        try {
+            const savedState = localStorage.getItem('topogan-last-map-state');
+            if (savedState) {
+                const parsed = JSON.parse(savedState);
+                if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+                    initialCenter = [parsed.lat, parsed.lng];
+                    if (typeof parsed.zoom === 'number') {
+                        initialZoom = parsed.zoom;
+                    }
+                    // If we restored the state, skip the initial fitToParcel
+                    if (fitToParcel) {
+                        lastFitKey.current = fitToParcel.key;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse last map state", e);
+        }
+
         const map = L.map(mapContainerRef.current, {
-            center: [30.42, -9.60], // Default center (Agadir approx)
-            zoom: 13,
+            center: initialCenter,
+            zoom: initialZoom,
             zoomControl: false,
-            attributionControl: false,
-            preferCanvas: true // Performance optimization for large datasets
+            attributionControl: false
         });
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -104,6 +127,17 @@ const Map: React.FC<MapProps> = React.memo(({
 
         mapRef.current = map;
 
+        // Professional Coords Control
+        const coordsControl = new L.Control({ position: 'bottomright' });
+        coordsControl.onAdd = function() {
+          const div = L.DomUtil.create('div', 'bg-white/90 dark:bg-[#1E293B]/90 text-[#0F172A] dark:text-white px-3 py-1.5 rounded-xl shadow-md font-mono text-xs font-bold border border-[#E2E8F0] dark:border-[#334155] backdrop-blur-sm pointer-events-none');
+          div.innerHTML = "Initialisation...";
+          (this as any)._div = div;
+          return div;
+        };
+        coordsControl.addTo(map);
+        coordsControlRef.current = coordsControl;
+
         // Resize Observer for responsiveness
         const resizeObserver = new ResizeObserver(() => {
             map.invalidateSize();
@@ -115,11 +149,14 @@ const Map: React.FC<MapProps> = React.memo(({
         const handleMove = () => {
             if (moveTimeout) return;
             moveTimeout = setTimeout(() => {
-                onCenterChange(map.getCenter());
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+                onCenterChange(center);
+                localStorage.setItem('topogan-last-map-state', JSON.stringify({ lat: center.lat, lng: center.lng, zoom }));
                 moveTimeout = null;
-            }, 100);
+            }, 500);
         };
-        map.on('move', handleMove);
+        map.on('moveend', handleMove); // Use moveend to avoid saving too often
         
         map.on('click', (e: L.LeafletMouseEvent) => {
             // Find closest point for snapping (simple implementation)
@@ -145,13 +182,37 @@ const Map: React.FC<MapProps> = React.memo(({
         if (onMapDoubleClick) map.on('dblclick', (e) => onMapDoubleClick(e));
 
         return () => {
-            map.off('move', handleMove);
+            map.off('moveend', handleMove);
             resizeObserver.disconnect();
             if (moveTimeout) clearTimeout(moveTimeout);
             map.remove();
             mapRef.current = null;
         };
     }, []);
+
+    // Coordinate Display Update
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        const updateCoords = (e: L.LeafletMouseEvent) => {
+            if (!coordsControlRef.current?._div) return;
+            const { coordinateSystem, precision } = settings;
+            let html = '';
+            if (coordinateSystem === 'wgs84') {
+                html = `<div class="flex items-center gap-2"><span class="text-[10px] uppercase tracking-wider text-[#4F46E5]">WGS84</span><span>${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}</span></div>`;
+            } else {
+                const transformed = coordinateTransformationService.transform({ x: e.latlng.lng, y: e.latlng.lat }, 'wgs84', coordinateSystem);
+                if (transformed) {
+                    html = `<div class="flex items-center gap-2"><span class="text-[10px] uppercase tracking-wider text-[#4F46E5]">${coordinateSystem.replace(/_/g, ' ')}</span><span>X: ${transformed.x.toFixed(precision)} Y: ${transformed.y.toFixed(precision)}</span></div>`;
+                }
+            }
+            coordsControlRef.current._div.innerHTML = html;
+        };
+
+        map.on('mousemove', updateCoords);
+        return () => { map.off('mousemove', updateCoords); }
+    }, [settings]);
 
     // Update Base Layer
     useEffect(() => {
@@ -233,7 +294,7 @@ const Map: React.FC<MapProps> = React.memo(({
                             permanent: true, 
                             direction: 'right', 
                             offset: [8, 0],
-                            className: 'bg-transparent border-0 shadow-none text-xs font-bold text-gray-800 dark:text-white' 
+                            className: 'bg-transparent border-0 shadow-none text-xs font-bold text-[#0F172A] dark:text-white' 
                         });
                     }
 
@@ -342,15 +403,23 @@ const Map: React.FC<MapProps> = React.memo(({
         setTimeout(() => map.removeLayer(marker), 3000);
     }, [goTo]);
 
+    const lastFitKey = useRef<number | null>(null);
+
     useEffect(() => {
         const map = mapRef.current;
         if (!map || !fitToParcel) return;
+        
+        // Only fit bounds if the key has changed (e.g., active parcel changed)
+        // OR if mapAutoFit is enabled in settings
+        if (lastFitKey.current === fitToParcel.key && !settings.mapAutoFit) return;
+        
         const parcel = parcels.find(p => p.id === fitToParcel.id);
         if (parcel && parcel.points.length > 0) {
             const bounds = L.latLngBounds(parcel.points.map(p => [p.y, p.x]));
             map.fitBounds(bounds, { padding: [50, 50] });
+            lastFitKey.current = fitToParcel.key;
         }
-    }, [fitToParcel, parcels]);
+    }, [fitToParcel, parcels, settings.mapAutoFit]);
 
     // Handle Imported Layers
     useEffect(() => {

@@ -116,70 +116,72 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-3 mb-4 flex-shrink-0">
-          <h2 className="text-xl font-bold">Paramètres</h2>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+    <div className="fixed inset-0 bg-[#0F172A]/40 flex items-center justify-center z-[2000] p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white dark:bg-[#0F172A] rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col max-h-[90vh] border border-[#F1F5F9] dark:border-[#1E293B]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center border-b border-[#F1F5F9] dark:border-[#1E293B] pb-4 mb-5 flex-shrink-0">
+          <h2 className="text-xl font-bold text-[#0F172A] dark:text-white">Paramètres</h2>
+          <button onClick={onClose} className="p-1.5 rounded-xl text-[#64748B] hover:bg-[#F1F5F9] dark:hover:bg-[#1E293B] transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <div className="space-y-6 overflow-y-auto pr-2 flex-grow">
+        <div className="space-y-6 overflow-y-auto pr-2 flex-grow custom-scrollbar">
           {/* General Settings */}
-          <div className="space-y-6">
-            <label htmlFor="precision" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Précision des décimales</label>
-            <select
-              id="precision"
-              value={settings.precision}
-              onChange={(e) => handleSettingChange('precision', parseInt(e.target.value, 10))}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Nombre de décimales pour les coordonnées, distances et surfaces.</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Thème de l'application</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['light', 'dark', 'system'] as Theme[]).map(theme => (
-                 <button 
-                   key={theme} 
-                   onClick={() => handleSettingChange('theme', theme)}
-                   className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${settings.theme === theme ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
-                   >
-                   {theme.charAt(0).toUpperCase() + theme.slice(1)}
-                 </button>
-              ))}
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="precision" className="bsport-label">Précision des décimales</label>
+              <select
+                id="precision"
+                value={settings.precision}
+                onChange={(e) => handleSettingChange('precision', parseInt(e.target.value, 10))}
+                className="bsport-select"
+              >
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <p className="mt-1.5 text-[11px] text-[#64748B] dark:text-[#94A3B8]">Nombre de décimales pour les coordonnées, distances et surfaces.</p>
             </div>
-          </div>
-           
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <label htmlFor="coordinate-system" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Système de coordonnées</label>
-            <select
-              id="coordinate-system"
-              value={settings.coordinateSystem}
-              onChange={(e) => handleSettingChange('coordinateSystem', e.target.value as CoordinateSystem)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-            >
-              {coordinateSystems.map(cs => <option key={cs.id} value={cs.id}>{cs.label}</option>)}
-            </select>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Choisissez le système pour l'entrée et les calculs. Les outils de topographie plane (Rayonnement, etc.) sont désactivés en WGS84.
-            </p>
+
+            <div>
+              <label className="bsport-label">Thème de l'application</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['light', 'dark', 'system'] as Theme[]).map(theme => (
+                   <button 
+                     key={theme} 
+                     onClick={() => handleSettingChange('theme', theme)}
+                     className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${settings.theme === theme ? 'bg-[#4F46E5] text-white shadow-md shadow-[#4F46E5]/20' : 'bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
+                     >
+                     {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                   </button>
+                ))}
+              </div>
+            </div>
+             
+            <div className="border-t border-[#F1F5F9] dark:border-[#1E293B] pt-5">
+              <label htmlFor="coordinate-system" className="bsport-label">Système de coordonnées</label>
+              <select
+                id="coordinate-system"
+                value={settings.coordinateSystem}
+                onChange={(e) => handleSettingChange('coordinateSystem', e.target.value as CoordinateSystem)}
+                className="bsport-select"
+              >
+                {coordinateSystems.map(cs => <option key={cs.id} value={cs.id}>{cs.label}</option>)}
+              </select>
+              <p className="mt-1.5 text-[11px] text-[#64748B] dark:text-[#94A3B8]">
+                  Choisissez le système pour l'entrée et les calculs. Les outils de topographie plane (Rayonnement, etc.) sont désactivés en WGS84.
+              </p>
+            </div>
           </div>
 
           {/* Unit Settings */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-6">
+          <div className="border-t border-[#F1F5F9] dark:border-[#1E293B] pt-5 space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Unité de distance</label>
+              <label className="bsport-label">Unité de distance</label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {distanceUnits.map(unit => (
                    <button 
                      key={unit.id} 
                      onClick={() => handleSettingChange('distanceUnit', unit.id)}
-                     className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${settings.distanceUnit === unit.id ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                     className={`px-2 py-2 text-[11px] font-semibold rounded-xl transition-all ${settings.distanceUnit === unit.id ? 'bg-[#4F46E5] text-white shadow-md shadow-[#4F46E5]/20' : 'bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                    >
                      {unit.label}
                    </button>
@@ -187,13 +189,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Unité de surface</label>
+              <label className="bsport-label">Unité de surface</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {areaUnits.map(unit => (
                    <button 
                      key={unit.id} 
                      onClick={() => handleSettingChange('areaUnit', unit.id)}
-                     className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${settings.areaUnit === unit.id ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                     className={`px-2 py-2 text-[11px] font-semibold rounded-xl transition-all ${settings.areaUnit === unit.id ? 'bg-[#4F46E5] text-white shadow-md shadow-[#4F46E5]/20' : 'bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                    >
                      {unit.label}
                    </button>
@@ -203,24 +205,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
           </div>
           
           {/* Parcel Management */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Gestion des Parcelles</label>
-            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+          <div className="border-t border-[#F1F5F9] dark:border-[#1E293B] pt-5">
+            <label className="bsport-label">Gestion des Parcelles</label>
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
               {parcels.map(parcel => (
-                <div key={parcel.id} className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700/50 p-2 rounded-md">
-                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: parcel.color }}></span>
+                <div key={parcel.id} className="flex items-center space-x-2 bg-[#F8FAFC] dark:bg-[#1E293B]/50 p-2.5 rounded-xl border border-[#E2E8F0] dark:border-[#334155]">
+                  <span className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: parcel.color }}></span>
                   <input
                     type="text"
                     value={editingNames[parcel.id] || ''}
                     onChange={(e) => handleNameChange(parcel.id, e.target.value)}
                     onBlur={() => handleNameBlur(parcel.id)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                    className="flex-grow bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-1"
+                    className="flex-grow bg-transparent text-sm font-semibold text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 rounded px-1"
                   />
                   <button
                     onClick={() => handleDeleteParcel(parcel.id, parcel.name)}
                     disabled={parcels.length <= 1}
-                    className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
+                    className="p-1.5 text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title={parcels.length <= 1 ? "Impossible de supprimer la dernière parcelle" : "Supprimer la parcelle"}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -234,15 +236,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
 
 
           {/* Map Settings */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-6">
+          <div className="border-t border-[#F1F5F9] dark:border-[#1E293B] pt-5 space-y-5">
              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fond de carte</label>
+                <label className="bsport-label">Fond de carte</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {tileLayers.map(layer => (
                      <button 
                        key={layer.id} 
                        onClick={() => handleSettingChange('mapTileLayer', layer.id)}
-                       className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${settings.mapTileLayer === layer.id ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                       className={`px-2 py-2 text-[11px] font-semibold rounded-xl transition-all ${settings.mapTileLayer === layer.id ? 'bg-[#4F46E5] text-white shadow-md shadow-[#4F46E5]/20' : 'bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                      >
                        {layer.label}
                      </button>
@@ -250,13 +252,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Style des marqueurs</label>
+                <label className="bsport-label">Style des marqueurs</label>
                 <div className="grid grid-cols-2 gap-2">
                   {markerStyles.map(style => (
                      <button 
                        key={style.id} 
                        onClick={() => handleSettingChange('mapMarkerStyle', style.id)}
-                       className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${settings.mapMarkerStyle === style.id ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+                       className={`px-2 py-2 text-[11px] font-semibold rounded-xl transition-all ${settings.mapMarkerStyle === style.id ? 'bg-[#4F46E5] text-white shadow-md shadow-[#4F46E5]/20' : 'bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
                      >
                        {style.label}
                      </button>
@@ -265,9 +267,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
               </div>
               <div>
                 <label className="flex justify-between items-center cursor-pointer">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-semibold text-[#0F172A] dark:text-white">
                     Centrage automatique de la carte
-                    <p className="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+                    <p className="mt-1 text-[11px] font-normal text-[#64748B] dark:text-[#94A3B8]">
                       Ajuste automatiquement le zoom pour afficher tous les points.
                     </p>
                   </span>
@@ -278,26 +280,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
                       checked={settings.mapAutoFit}
                       onChange={(e) => handleSettingChange('mapAutoFit', e.target.checked)}
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-[#E2E8F0] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#4F46E5]/20 rounded-full peer dark:bg-[#334155] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-[#4F46E5]"></div>
                   </div>
                 </label>
               </div>
           </div>
           
           {/* Danger Zone */}
-          <div className="border-t border-red-500/50 dark:border-red-400/50 pt-4">
-              <div className="p-4 border-2 border-dashed border-red-500/50 dark:border-red-400/50 rounded-lg">
-                <h4 className="font-bold text-red-600 dark:text-red-400">Zone de Danger</h4>
-                <div className="space-y-2 mt-3">
+          <div className="border-t border-[#F1F5F9] dark:border-[#1E293B] pt-5">
+              <div className="p-5 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 rounded-2xl">
+                <h4 className="font-bold text-red-600 dark:text-red-400 mb-3 text-sm">Zone de Danger</h4>
+                <div className="space-y-2">
                     <button
                         onClick={handleResetSettings}
-                        className="w-full text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-4 py-2 rounded-md transition-colors"
+                        className="w-full text-sm font-semibold text-[#475569] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white bg-white dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-[#334155] hover:bg-[#F8FAFC] dark:hover:bg-[#334155] px-4 py-2.5 rounded-xl transition-colors"
                     >
                         Restaurer les paramètres par défaut
                     </button>
                     <button
                         onClick={handleResetApp}
-                        className="w-full font-bold px-4 py-2 border rounded-md transition-colors danger-zone-button text-sm"
+                        className="bsport-btn-danger w-full"
                     >
                         Réinitialiser l'application (Effacer tout)
                     </button>
@@ -307,10 +309,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onSettingsChang
 
         </div>
 
-        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 text-right flex-shrink-0">
+        <div className="mt-6 pt-5 border-t border-[#F1F5F9] dark:border-[#1E293B] flex justify-end flex-shrink-0">
             <button 
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700"
+                className="bsport-btn-primary"
             >
                 Fermer
             </button>

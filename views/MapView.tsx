@@ -10,6 +10,7 @@ import { coordinateTransformationService } from '../services/coordinateTransform
 import { formatArea, convertDistance, getDistanceUnitLabel } from '../services/unitConversionService';
 import MapControlPanel from '../components/MapControlPanel';
 import MapSearchControl from '../components/MapSearchControl';
+import ActiveParcelInfoPanel from '../components/ActiveParcelInfoPanel';
 import LiveMeasureDisplay from '../components/LiveMeasureDisplay';
 import ParcelDetailsModal from '../components/ParcelDetailsModal';
 import PhotoCaptureModal from '../components/PhotoCaptureModal';
@@ -62,6 +63,13 @@ const getSystemLabel = (sys: CoordinateSystem) => {
     }
 }
 
+const getSuggestedZone = (lat: number): CoordinateSystem => {
+    if (lat >= 31.7) return 'lambert_z1';
+    if (lat >= 28.1) return 'lambert_z2';
+    if (lat >= 24.5) return 'lambert_z3';
+    return 'lambert_z4';
+};
+
 const MapView: React.FC<MapViewProps> = (props) => {
     const { 
         parcels, activeParcelId, setActiveParcelId, parcelManager, annotations, setAnnotations, settings, 
@@ -76,12 +84,18 @@ const MapView: React.FC<MapViewProps> = (props) => {
     const [layersVisibility, setLayersVisibility] = useState<MapLayersVisibility>({ points: false, polygon: true, annotations: true });
     const [pendingAnnotation, setPendingAnnotation] = useState<{x: number, y: number} | null>(null);
     const [mouseWgsCoords, setMouseWgsCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [mapCenterCoords, setMapCenterCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     const [isTracking, setIsTracking] = useState(false);
     const [photoTargetPointId, setPhotoTargetPointId] = useState<number | null>(null);
     const [selectedParcelForDetails, setSelectedParcelForDetails] = useState<Parcel | null>(null);
     const [movingPointId, setMovingPointId] = useState<number | null>(null);
+    const [isInfoPanelVisible, setIsInfoPanelVisible] = useState(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setIsInfoPanelVisible(true);
+    }, [activeParcelId]);
 
     // Local GoTo state to handle internal search
     const [localGoToCoords, setLocalGoToCoords] = useState<{ point: { x: number; y: number }, key: number } | null>(null);
@@ -93,6 +107,12 @@ const MapView: React.FC<MapViewProps> = (props) => {
 
     // Memoize this callback to avoid Map re-renders on simple mouse moves
     const handleCenterChange = useCallback((c: L.LatLng) => {
+        setMapCenterCoords({ lat: c.lat, lng: c.lng });
+        // Fallback for mobile where mousemove might not fire
+        setMouseWgsCoords({ lat: c.lat, lng: c.lng });
+    }, []);
+
+    const handleMouseMove = useCallback((c: L.LatLng) => {
         setMouseWgsCoords({ lat: c.lat, lng: c.lng });
     }, []);
 
@@ -141,10 +161,17 @@ const MapView: React.FC<MapViewProps> = (props) => {
     }, [mouseWgsCoords, activeTool, currentDrawingPoints]);
 
     const centerDisplayCoords = useMemo(() => {
-        if (!mouseWgsCoords) return { x: 0, y: 0 };
+        if (!mapCenterCoords) return { x: 0, y: 0 };
+        if (settings.coordinateSystem === 'wgs84') return { x: mapCenterCoords.lng, y: mapCenterCoords.lat };
+        const t = coordinateTransformationService.transform({ x: mapCenterCoords.lng, y: mapCenterCoords.lat }, 'wgs84', settings.coordinateSystem);
+        return t || { x: 0, y: 0 };
+    }, [mapCenterCoords, settings.coordinateSystem]);
+
+    const cursorDisplayCoords = useMemo(() => {
+        if (!mouseWgsCoords) return null;
         if (settings.coordinateSystem === 'wgs84') return { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat };
         const t = coordinateTransformationService.transform({ x: mouseWgsCoords.lng, y: mouseWgsCoords.lat }, 'wgs84', settings.coordinateSystem);
-        return t || { x: 0, y: 0 };
+        return t || null;
     }, [mouseWgsCoords, settings.coordinateSystem]);
 
     // Calcul de la distance dynamique en mode "Ajout Borne" (Viseur)
@@ -203,8 +230,8 @@ const MapView: React.FC<MapViewProps> = (props) => {
     }, [activeParcel, settings.coordinateSystem, setNotification]);
 
     const handleAddCenterPoint = () => {
-        if (!mouseWgsCoords || !activeParcelId) return;
-        let coords = { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat };
+        if (!mapCenterCoords || !activeParcelId) return;
+        let coords = { x: mapCenterCoords.lng, y: mapCenterCoords.lat };
         if (settings.coordinateSystem !== 'wgs84') {
             const transformed = coordinateTransformationService.transform(coords, 'wgs84', settings.coordinateSystem);
             if (transformed) coords = transformed;
@@ -403,6 +430,7 @@ const MapView: React.FC<MapViewProps> = (props) => {
                     setActiveTool('pan');
                 }}
                 onCenterChange={handleCenterChange}
+                onMouseMove={handleMouseMove}
                 isTracking={isTracking}
                 onTrackingChange={setIsTracking}
                 importedLayers={importedLayers}
@@ -412,14 +440,23 @@ const MapView: React.FC<MapViewProps> = (props) => {
             {activeTool !== 'point' && (
                 <>
                     <MapSearchControl 
-                        activeParcel={activeParcel}
-                        onParcelClick={handleCenterOnActiveParcel}
+                        onOpenGoTo={onOpenGoToModal}
                         onStartBornage={() => {
                             setActiveTool('point');
                             setNotification("Mode Bornage activé. Placez la cible et cliquez sur +", "info");
                         }}
                         showBornageButton={!isLocalSystem}
                     />
+                    
+                    {currentView === 'MAP' && activeParcel && isInfoPanelVisible && (
+                        <ActiveParcelInfoPanel 
+                            parcel={activeParcel} 
+                            results={props.results} 
+                            settings={settings} 
+                            onClose={() => setIsInfoPanelVisible(false)}
+                            onOpenDetails={() => setSelectedParcelForDetails(activeParcel)}
+                        />
+                    )}
                     
                     <div className="absolute top-6 right-6 z-[401]">
                         <MapControlPanel
@@ -439,7 +476,6 @@ const MapView: React.FC<MapViewProps> = (props) => {
                                 setMovingPointId(null);
                                 if (tool !== 'pan') setIsPanelOpen(false); 
                             }}
-                            onOpenGoTo={onOpenGoToModal}
                             isTracking={isTracking}
                             onTrackingChange={setIsTracking}
                             onImportClick={handleImportClick}
@@ -454,8 +490,8 @@ const MapView: React.FC<MapViewProps> = (props) => {
                 <>
                     {/* Top System Label */}
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[402]">
-                        <div className="bg-gray-900/90 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl backdrop-blur-sm border border-white/10 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <div className="bg-[#0F172A]/90 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xl backdrop-blur-sm border border-white/10 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
                             {getSystemLabel(settings.coordinateSystem)}
                         </div>
                     </div>
@@ -471,43 +507,54 @@ const MapView: React.FC<MapViewProps> = (props) => {
                     </div>
 
                     {/* Bottom Controls Container */}
-                    <div className="absolute bottom-8 left-0 right-0 z-[402] flex flex-col items-center gap-4 pointer-events-none">
+                    <div className="absolute bottom-8 left-0 right-0 z-[402] flex flex-col items-center gap-4 pointer-events-none px-4">
                         
                         {/* Live Distance Indicator */}
                         {distanceToLastPoint !== null && distanceToLastPoint > 0 && (
-                            <div className="mb-2 bg-blue-600/90 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm border border-blue-400/30 flex items-center gap-2 animate-fade-in pointer-events-auto">
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                            <div className="mb-2 bg-[#4F46E5]/90 text-white px-4 py-1.5 rounded-xl text-xs font-bold shadow-lg backdrop-blur-sm border border-[#818CF8]/30 flex items-center gap-2 animate-fade-in pointer-events-auto">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                                 <span>Dist: {convertDistance(distanceToLastPoint, settings.distanceUnit).toFixed(settings.precision)} {getDistanceUnitLabel(settings.distanceUnit)}</span>
                             </div>
                         )}
 
                         {/* Coordinates */}
-                        <div className="bg-gray-900/90 text-white px-6 py-3 rounded-2xl font-mono text-sm font-bold shadow-xl backdrop-blur-md border border-white/10 flex gap-4 pointer-events-auto">
-                            <span>X: {centerDisplayCoords.x.toFixed(settings.precision)}</span>
-                            <span className="text-gray-500">|</span>
-                            <span>Y: {centerDisplayCoords.y.toFixed(settings.precision)}</span>
+                        <div className="bg-[#0F172A]/90 text-white px-4 sm:px-6 py-3 rounded-2xl font-mono text-xs sm:text-sm font-bold shadow-xl backdrop-blur-md border border-white/10 flex flex-col sm:flex-row gap-2 sm:gap-4 pointer-events-auto items-center text-center">
+                            <div className="flex gap-4">
+                                <span>X: {centerDisplayCoords.x.toFixed(settings.precision)}</span>
+                                <span className="text-[#64748B] hidden sm:inline">|</span>
+                                <span>Y: {centerDisplayCoords.y.toFixed(settings.precision)}</span>
+                            </div>
+                            {mouseWgsCoords && (
+                                <button 
+                                    onClick={() => onSettingsChange({ ...settings, coordinateSystem: getSuggestedZone(mouseWgsCoords.lat) })}
+                                    className="text-[10px] text-[#818CF8] bg-[#4F46E5]/20 px-2 py-0.5 rounded-lg border border-[#4F46E5]/30 hover:bg-[#4F46E5]/30 transition-colors cursor-pointer"
+                                    title="Cliquer pour utiliser cette zone"
+                                >
+                                    Zone suggérée: {getSystemLabel(getSuggestedZone(mouseWgsCoords.lat))}
+                                </button>
+                            )}
                         </div>
 
                         {/* Mode Label */}
-                        <div className="bg-green-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg pointer-events-auto">
+                        <div className="bg-[#10B981] text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg pointer-events-auto">
                             MODE: BORNE
                         </div>
 
                         {/* Buttons */}
-                        <div className="flex items-center gap-6 mt-2 pointer-events-auto">
+                        <div className="flex items-center gap-4 sm:gap-6 mt-2 pointer-events-auto">
                             {/* Undo / Back */}
-                            <button onClick={handleUndoPoint} className="w-14 h-14 bg-white text-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                            <button onClick={handleUndoPoint} className="w-12 h-12 sm:w-14 sm:h-14 bg-white text-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                             </button>
 
                             {/* ADD Point */}
-                            <button onClick={handleAddCenterPoint} className="w-20 h-20 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all border-4 border-white/20">
-                                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            <button onClick={handleAddCenterPoint} className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all border-4 border-white/20">
+                                <svg className="w-8 h-8 sm:w-10 sm:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
 
                             {/* Validate / Done */}
-                            <button onClick={() => setActiveTool('pan')} className="w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all">
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            <button onClick={() => setActiveTool('pan')} className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                             </button>
                         </div>
                     </div>
@@ -515,14 +562,26 @@ const MapView: React.FC<MapViewProps> = (props) => {
             )}
 
             {movingPointId && (
-                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[401] bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg font-bold flex items-center gap-3 animate-bounce">
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[401] bg-[#4F46E5] text-white px-4 py-2 rounded-xl shadow-lg font-bold flex items-center gap-3 animate-bounce">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>
                     Mode Déplacement Actif
-                    <button onClick={() => setMovingPointId(null)} className="ml-2 hover:bg-blue-700 rounded-full p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    <button onClick={() => setMovingPointId(null)} className="ml-2 hover:bg-[#4338CA] rounded-lg p-1 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
             )}
 
             {!isLocalSystem && activeTool !== 'point' && <LiveMeasureDisplay data={liveData} settings={settings} />}
+            
+            {/* Affichage des coordonnées du curseur (hors mode point) */}
+            {activeTool !== 'point' && cursorDisplayCoords && (
+                <div className="absolute bottom-4 left-4 z-[400] pointer-events-none hidden sm:flex flex-col gap-1">
+                    <div className="bg-white/90 dark:bg-[#0F172A]/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-[#F1F5F9]/50 dark:border-[#1E293B]/50 flex gap-3 text-[11px] font-mono font-bold text-[#64748B] dark:text-[#94A3B8]">
+                        <span>X: {cursorDisplayCoords.x.toFixed(settings.precision)}</span>
+                        <span className="text-[#CBD5E1] dark:text-[#334155]">|</span>
+                        <span>Y: {cursorDisplayCoords.y.toFixed(settings.precision)}</span>
+                    </div>
+                </div>
+            )}
+
             {contextMenu && <ContextMenu {...contextMenu} onClose={() => setContextMenu(null)} />}
             {photoTargetPointId && <PhotoCaptureModal onCapture={img => {
                 parcelManager.updatePoint(activeParcelId!, photoTargetPointId, { image: img } as any);

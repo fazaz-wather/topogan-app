@@ -433,7 +433,7 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
         
         if (pointersRef.current.size === 2) {
             // Initialiser distance pour pinch
-            const points = Array.from(pointersRef.current.values());
+            const points = Array.from(pointersRef.current.values()) as { x: number, y: number }[];
             prevPinchDistRef.current = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
         }
     }, [isDrawingMode]);

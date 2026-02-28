@@ -241,6 +241,49 @@ const MapView: React.FC<MapViewProps> = (props) => {
 
     const [isCapturingPhotoForNewPoint, setIsCapturingPhotoForNewPoint] = useState(false);
 
+    // Draggable Controls State
+    const [controlsPos, setControlsPos] = useState({ x: 0, y: 0 });
+    const isDraggingControls = useRef(false);
+    const dragStartPos = useRef({ x: 0, y: 0 });
+
+    const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+        isDraggingControls.current = true;
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        dragStartPos.current = { x: clientX - controlsPos.x, y: clientY - controlsPos.y };
+    };
+
+    useEffect(() => {
+        const handleMove = (e: MouseEvent | TouchEvent) => {
+            if (!isDraggingControls.current) return;
+            e.preventDefault();
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+            const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+            setControlsPos({
+                x: clientX - dragStartPos.current.x,
+                y: clientY - dragStartPos.current.y
+            });
+        };
+
+        const handleUp = () => {
+            isDraggingControls.current = false;
+        };
+
+        if (activeTool === 'point') {
+            window.addEventListener('mousemove', handleMove, { passive: false });
+            window.addEventListener('touchmove', handleMove, { passive: false });
+            window.addEventListener('mouseup', handleUp);
+            window.addEventListener('touchend', handleUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+            window.removeEventListener('touchend', handleUp);
+        };
+    }, [activeTool]);
+
     const handleAddCenterPoint = (image?: string) => {
         if (!mapCenterCoords || !activeParcelId) return;
         let coords = { x: mapCenterCoords.lng, y: mapCenterCoords.lat };
@@ -538,29 +581,41 @@ const MapView: React.FC<MapViewProps> = (props) => {
                         </div>
                     </div>
 
-                    {/* Bottom Controls Container */}
-                    <div className="absolute bottom-8 left-0 right-0 z-[402] flex flex-col items-center gap-4 pointer-events-none px-4">
+                    {/* Draggable Controls Container */}
+                    <div 
+                        className="absolute bottom-24 left-1/2 z-[402] flex flex-col items-center gap-2 touch-none select-none"
+                        style={{ 
+                            transform: `translate(calc(-50% + ${controlsPos.x}px), ${controlsPos.y}px)`,
+                            cursor: isDraggingControls.current ? 'grabbing' : 'grab'
+                        }}
+                    >
+                        {/* Drag Handle */}
+                        <div 
+                            onMouseDown={handleDragStart}
+                            onTouchStart={handleDragStart}
+                            className="w-16 h-1.5 bg-white/30 dark:bg-black/30 rounded-full mb-1 backdrop-blur-md cursor-grab active:cursor-grabbing hover:bg-white/50 transition-colors shadow-sm"
+                        />
                         
                         {/* Buttons */}
-                        <div className="flex items-center gap-4 sm:gap-6 mt-2 pointer-events-auto">
+                        <div className="flex items-center gap-3 sm:gap-4 p-2 bg-white/10 dark:bg-black/20 backdrop-blur-xl rounded-full border border-white/20 shadow-2xl">
                             {/* Undo / Back */}
-                            <button onClick={handleUndoPoint} className="w-12 h-12 sm:w-14 sm:h-14 bg-white text-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                            <button onClick={handleUndoPoint} className="w-10 h-10 sm:w-12 sm:h-12 bg-white text-gray-800 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                             </button>
 
                             {/* ADD Point with Photo */}
-                            <button onClick={() => setIsCapturingPhotoForNewPoint(true)} className="w-12 h-12 sm:w-14 sm:h-14 bg-white text-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-blue-600">
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <button onClick={() => setIsCapturingPhotoForNewPoint(true)} className="w-10 h-10 sm:w-12 sm:h-12 bg-white text-blue-600 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                             </button>
 
                             {/* ADD Point */}
-                            <button onClick={() => handleAddCenterPoint()} className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all border-4 border-white/20">
-                                <svg className="w-8 h-8 sm:w-10 sm:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            <button onClick={() => handleAddCenterPoint()} className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-full shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all border-4 border-white/20">
+                                <svg className="w-7 h-7 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
 
                             {/* Validate / Done */}
-                            <button onClick={() => setActiveTool('pan')} className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all">
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            <button onClick={() => setActiveTool('pan')} className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                             </button>
                         </div>
                     </div>

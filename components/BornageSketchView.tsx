@@ -355,7 +355,7 @@ interface BornageSketchViewProps {
     parcelManager?: any;
 }
 
-type SketchTool = 'freehand' | 'line' | 'rectangle' | 'circle';
+type SketchTool = 'freehand' | 'line' | 'rectangle' | 'circle' | 'polygon';
 
 interface DrawingObject {
     id: number;
@@ -407,6 +407,7 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
     const [drawingWidth, setDrawingWidth] = useState<number>(0.5);
     const [drawingStyle, setDrawingStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
     const [isEraser, setIsEraser] = useState(false);
+    const [cursorInfo, setCursorInfo] = useState<{ x: number, y: number, distance?: number, screenX?: number, screenY?: number } | null>(null);
 
     const [elementPositions, setElementPositions] = useState<any>(getDefaultPositions());
     const [customAnnotations, setCustomAnnotations] = useState<CustomAnnotationState[]>([]);
@@ -726,6 +727,11 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
         const transform = (p: Point) => ({
             x: (p.x - centerX) * scaleFactor + offsetX,
             y: -(p.y - centerY) * scaleFactor + offsetY
+        });
+
+        const inverseTransform = (screenX: number, screenY: number) => ({
+            x: (screenX - offsetX) / scaleFactor + centerX,
+            y: -(screenY - offsetY) / scaleFactor + centerY
         });
 
         const projectedPoints = points.map(p => ({ ...p, screen: transform(p) }));
@@ -1120,6 +1126,20 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
         if (!isDrawingMode || !zoomableContentRef.current) return; 
         const [rawX, rawY] = getPaperCoords(e); 
         const { x, y } = getSnappedPosition(rawX, rawY); 
+        
+        if (plotData) {
+            const { centerX, centerY, scaleFactor, offsetX, offsetY } = plotData.transformParams;
+            const realX = (x - offsetX) / scaleFactor + centerX;
+            const realY = -(y - offsetY) / scaleFactor + centerY;
+            let distance = undefined;
+            if (dragStart) {
+                const startRealX = (dragStart[0] - offsetX) / scaleFactor + centerX;
+                const startRealY = -(dragStart[1] - offsetY) / scaleFactor + centerY;
+                distance = Math.sqrt(Math.pow(realX - startRealX, 2) + Math.pow(realY - startRealY, 2));
+            }
+            setCursorInfo({ x: realX, y: realY, distance, screenX: e.clientX, screenY: e.clientY });
+        }
+
         if (dragStart) { 
             if (activeTool === 'freehand') setCurrentFreehandPath(prev => [...prev, [x, y]]); 
             else setCurrentPointer([x, y]); 
@@ -1149,6 +1169,23 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
         
         if (newDrawing) setDrawings(prev => [...prev, newDrawing!]); 
         setDragStart(null); setCurrentPointer(null); setCurrentFreehandPath([]); 
+        
+        // Update cursorInfo to remove distance but keep position
+        if (plotData) {
+            const { centerX, centerY, scaleFactor, offsetX, offsetY } = plotData.transformParams;
+            const realX = (x - offsetX) / scaleFactor + centerX;
+            const realY = -(y - offsetY) / scaleFactor + centerY;
+            setCursorInfo({ x: realX, y: realY, screenX: e.clientX, screenY: e.clientY });
+        }
+    };
+
+    const handlePointerLeave = (e: React.PointerEvent) => {
+        if (!isDrawingMode) return;
+        if (dragStart) {
+            handlePointerUp(e);
+        }
+        setCursorInfo(null);
+        setSnapIndicator(null);
     };
 
     const handleUndoDrawing = () => setDrawings(prev => prev.slice(0, -1));
@@ -1406,6 +1443,31 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
                     onPointerLeave={handleViewportPointerUp}
                     style={{ cursor: isDrawingMode ? 'crosshair' : 'grab', touchAction: 'none' }}
                 >
+                    {isDrawingMode && cursorInfo && cursorInfo.screenX !== undefined && cursorInfo.screenY !== undefined && (
+                        <div 
+                            className="fixed bg-gray-900/90 dark:bg-gray-800/95 backdrop-blur-md border border-gray-700/50 shadow-2xl rounded-xl p-2.5 z-[100] pointer-events-none flex flex-col gap-1 min-w-[140px] transform -translate-y-full -translate-x-1/2 -mt-4 transition-none"
+                            style={{ left: cursorInfo.screenX, top: cursorInfo.screenY }}
+                        >
+                            <div className="flex justify-between items-center text-[10px] font-mono">
+                                <span className="text-gray-400 font-sans font-bold uppercase tracking-wider">X</span>
+                                <span className="text-white font-medium">{cursorInfo.x.toFixed(settings.precision)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] font-mono">
+                                <span className="text-gray-400 font-sans font-bold uppercase tracking-wider">Y</span>
+                                <span className="text-white font-medium">{cursorInfo.y.toFixed(settings.precision)}</span>
+                            </div>
+                            {cursorInfo.distance !== undefined && (
+                                <>
+                                    <div className="h-px bg-gray-700/50 my-0.5"></div>
+                                    <div className="flex justify-between items-center text-[10px] font-mono">
+                                        <span className="text-orange-400 font-sans font-bold uppercase tracking-wider">Dist</span>
+                                        <span className="text-orange-300 font-bold">{convertDistance(cursorInfo.distance, settings.distanceUnit).toFixed(settings.precision)} {getDistanceUnitLabel(settings.distanceUnit)}</span>
+                                    </div>
+                                </>
+                            )}
+                            <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 w-3 h-3 bg-gray-900/90 dark:bg-gray-800/95 border-b border-r border-gray-700/50 rotate-45"></div>
+                        </div>
+                    )}
                     <div 
                         className="relative shadow-2xl transition-transform duration-75 ease-out origin-top-left" 
                         style={{ 
@@ -1416,7 +1478,7 @@ const BornageSketchView: React.FC<BornageSketchViewProps> = ({ points, results, 
                         }}
                     >
                         <div ref={zoomableContentRef} className="w-full h-full bg-white relative bornage-sketch-container printable-area" style={{ cursor: isDrawingMode ? 'crosshair' : (addingText ? 'text' : 'default'), touchAction: 'none' }} onClick={onPaperClick}>
-                            {isDrawingMode && <div className="absolute inset-0 z-50" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} />}
+                            {isDrawingMode && <div className="absolute inset-0 z-50" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerLeave} />}
                             {longPressActivePoint && (
                                 <div className="absolute z-[100]" style={{ left: `${longPressActivePoint.x}px`, top: `${longPressActivePoint.y}px`, transform: 'translate(-50%, -50%) scale(2)' }}>
                                     <svg width="24" height="24" className="long-press-indicator"><circle cx="12" cy="12" r="10" /></svg>

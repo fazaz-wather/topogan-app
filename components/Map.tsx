@@ -44,6 +44,7 @@ interface MapProps {
     importedLayers: ImportedLayer[];
     onMapDoubleClick?: (e: L.LeafletMouseEvent) => void;
     trackingLine?: { start: { x: number, y: number }, end: { x: number, y: number }, label: string } | null;
+    onMapMove?: (center: L.LatLng) => void;
 }
 
 const Map: React.FC<MapProps> = React.memo(({
@@ -51,7 +52,7 @@ const Map: React.FC<MapProps> = React.memo(({
     onSelectParcel, onUpdatePoint, onStartMovingPoint, onDeletePoint, layersVisibility,
     activeTool, measurePoints, highlightedPointId, movingPointId, setNotification,
     goTo, fitToParcel, isDrawing, pendingAnnotation, onSaveNewAnnotation, onCenterChange,
-    isTracking, onTrackingChange, importedLayers, onMapDoubleClick, trackingLine
+    isTracking, onTrackingChange, importedLayers, onMapDoubleClick, trackingLine, onMapMove
 }) => {
     const mapRef = useRef<L.Map | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -157,6 +158,13 @@ const Map: React.FC<MapProps> = React.memo(({
             }, 500);
         };
         map.on('moveend', handleMove); // Use moveend to avoid saving too often
+        
+        // Real-time move handler
+        if (onMapMove) {
+            map.on('move', () => {
+                onMapMove(map.getCenter());
+            });
+        }
         
         map.on('click', (e: L.LeafletMouseEvent) => {
             // Find closest point for snapping (simple implementation)
@@ -266,6 +274,41 @@ const Map: React.FC<MapProps> = React.memo(({
                     const polygon = L.polygon(latlngs, style);
                     polygon.on('click', (e) => { L.DomEvent.stopPropagation(e); onSelectParcel(p.id); });
                     polygon.on('contextmenu', (e) => onMapContextMenu(e, p));
+                    
+                    // Long press support for mobile
+                    let pressTimer: any;
+                    polygon.on('mousedown', (e) => {
+                        pressTimer = setTimeout(() => {
+                            onMapContextMenu(e, p);
+                        }, 800);
+                    });
+                    polygon.on('mouseup', () => clearTimeout(pressTimer));
+                    polygon.on('mouseout', () => clearTimeout(pressTimer));
+                    polygon.on('touchstart', (e: any) => {
+                         pressTimer = setTimeout(() => {
+                            // Touch event doesn't have latlng directly in the same way, need to extract
+                            const touch = e.originalEvent.touches[0];
+                            const map = mapRef.current;
+                            if (map && touch) {
+                                const latlng = map.containerPointToLatLng([touch.clientX, touch.clientY]);
+                                // Create a synthetic event for context menu
+                                const syntheticEvent = {
+                                    ...e,
+                                    latlng,
+                                    originalEvent: {
+                                        ...e.originalEvent,
+                                        clientX: touch.clientX,
+                                        clientY: touch.clientY,
+                                        preventDefault: () => {}
+                                    },
+                                    target: polygon
+                                };
+                                onMapContextMenu(syntheticEvent, p);
+                            }
+                        }, 800);
+                    });
+                    polygon.on('touchend', () => clearTimeout(pressTimer));
+
                     parcelLayer.addLayer(polygon);
                 } else {
                     const line = L.polyline(latlngs, style);
@@ -303,6 +346,39 @@ const Map: React.FC<MapProps> = React.memo(({
                         // Trigger simple map click or specific point logic if needed
                     });
                     marker.on('contextmenu', (e) => onMapContextMenu(e, pt));
+                    
+                    // Long press support for mobile
+                    let pressTimer: any;
+                    marker.on('mousedown', (e) => {
+                        pressTimer = setTimeout(() => {
+                            onMapContextMenu(e, pt);
+                        }, 800);
+                    });
+                    marker.on('mouseup', () => clearTimeout(pressTimer));
+                    marker.on('mouseout', () => clearTimeout(pressTimer));
+                    marker.on('touchstart', (e: any) => {
+                         pressTimer = setTimeout(() => {
+                            const touch = e.originalEvent.touches[0];
+                            const map = mapRef.current;
+                            if (map && touch) {
+                                const latlng = map.containerPointToLatLng([touch.clientX, touch.clientY]);
+                                const syntheticEvent = {
+                                    ...e,
+                                    latlng,
+                                    originalEvent: {
+                                        ...e.originalEvent,
+                                        clientX: touch.clientX,
+                                        clientY: touch.clientY,
+                                        preventDefault: () => {}
+                                    },
+                                    target: marker
+                                };
+                                onMapContextMenu(syntheticEvent, pt);
+                            }
+                        }, 800);
+                    });
+                    marker.on('touchend', () => clearTimeout(pressTimer));
+
                     pointLayer.addLayer(marker);
                 });
             });

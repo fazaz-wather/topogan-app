@@ -5,7 +5,7 @@ import { Point, AppSettings, Annotation, Notification, MapTool, MapLayersVisibil
 import Map from '../components/Map';
 import { useParcels } from '../hooks/useParcels';
 import ContextMenu from '../components/ContextMenu';
-import { calculateDistanceBetweenPoints, calculatePolygonArea, calculateDistances, calculateAngleBetweenPoints, calculateCentroid } from '../services/topographyService';
+import { calculateDistanceBetweenPoints, calculatePolygonArea, calculateDistances, calculateAngleBetweenPoints, calculateCentroid, calculateBearing } from '../services/topographyService';
 import { coordinateTransformationService } from '../services/coordinateTransformationService';
 import { formatArea, convertDistance, getDistanceUnitLabel } from '../services/unitConversionService';
 import MapControlPanel from '../components/MapControlPanel';
@@ -116,6 +116,13 @@ const MapView: React.FC<MapViewProps> = (props) => {
         setMouseWgsCoords({ lat: c.lat, lng: c.lng });
     }, []);
 
+    const handleMapMove = useCallback((c: L.LatLng) => {
+        setMapCenterCoords({ lat: c.lat, lng: c.lng });
+        if (activeTool === 'point') {
+            setMouseWgsCoords({ lat: c.lat, lng: c.lng });
+        }
+    }, [activeTool]);
+
     const parcelsForMap = useMemo(() => {
         if (isLocalSystem) return [];
         return parcels.map(parcel => {
@@ -174,8 +181,8 @@ const MapView: React.FC<MapViewProps> = (props) => {
         return t || null;
     }, [mouseWgsCoords, settings.coordinateSystem]);
 
-    // Calcul de la distance dynamique en mode "Ajout Borne" (Viseur)
-    const distanceToLastPoint = useMemo(() => {
+    // Calcul de la distance et du gisement dynamiques en mode "Ajout Borne" (Viseur)
+    const surveyData = useMemo(() => {
         if (activeTool !== 'point' || !activeParcelId || !centerDisplayCoords) return null;
         
         const activeParcel = parcels.find(p => p.id === activeParcelId);
@@ -185,12 +192,15 @@ const MapView: React.FC<MapViewProps> = (props) => {
         const p1 = lastPoint;
         const p2 = { id: -1, x: centerDisplayCoords.x, y: centerDisplayCoords.y };
 
-        return calculateDistanceBetweenPoints(p1, p2, settings.coordinateSystem);
+        const distance = calculateDistanceBetweenPoints(p1, p2, settings.coordinateSystem);
+        const bearing = calculateBearing(p1, p2, settings.coordinateSystem);
+
+        return { distance, bearing };
     }, [activeTool, activeParcelId, parcels, centerDisplayCoords, settings.coordinateSystem]);
 
     // Prépare la ligne virtuelle à afficher sur la carte Leaflet (en coordonnées WGS84)
     const trackingLine = useMemo(() => {
-        if (activeTool !== 'point' || !activeParcelId || !mouseWgsCoords || distanceToLastPoint === null) return null;
+        if (activeTool !== 'point' || !activeParcelId || !mouseWgsCoords || !surveyData) return null;
         const mappedParcel = parcelsForMap.find(p => p.id === activeParcelId);
         if (!mappedParcel || mappedParcel.points.length === 0) return null;
         const lastPointWgs = mappedParcel.points[mappedParcel.points.length - 1];
@@ -198,9 +208,9 @@ const MapView: React.FC<MapViewProps> = (props) => {
         return {
             start: { x: lastPointWgs.x, y: lastPointWgs.y },
             end: { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat },
-            label: `${convertDistance(distanceToLastPoint, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}`
+            label: `${convertDistance(surveyData.distance, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}`
         };
-    }, [activeTool, activeParcelId, parcelsForMap, mouseWgsCoords, distanceToLastPoint, settings.distanceUnit, settings.precision]);
+    }, [activeTool, activeParcelId, parcelsForMap, mouseWgsCoords, surveyData, settings.distanceUnit, settings.precision]);
 
 
     const handleImportClick = () => {
@@ -229,14 +239,17 @@ const MapView: React.FC<MapViewProps> = (props) => {
         }
     }, [activeParcel, settings.coordinateSystem, setNotification]);
 
-    const handleAddCenterPoint = () => {
+    const [isCapturingPhotoForNewPoint, setIsCapturingPhotoForNewPoint] = useState(false);
+
+    const handleAddCenterPoint = (image?: string) => {
         if (!mapCenterCoords || !activeParcelId) return;
         let coords = { x: mapCenterCoords.lng, y: mapCenterCoords.lat };
         if (settings.coordinateSystem !== 'wgs84') {
             const transformed = coordinateTransformationService.transform(coords, 'wgs84', settings.coordinateSystem);
             if (transformed) coords = transformed;
         }
-        parcelManager.addPoint(activeParcelId, coords);
+        // @ts-ignore
+        parcelManager.addPoint(activeParcelId, { ...coords, image });
         if (navigator.vibrate) navigator.vibrate(50);
         setNotification("Borne ajoutée au centre", "success");
     };
@@ -431,6 +444,7 @@ const MapView: React.FC<MapViewProps> = (props) => {
                 }}
                 onCenterChange={handleCenterChange}
                 onMouseMove={handleMouseMove}
+                onMapMove={handleMapMove}
                 isTracking={isTracking}
                 onTrackingChange={setIsTracking}
                 importedLayers={importedLayers}
@@ -488,58 +502,45 @@ const MapView: React.FC<MapViewProps> = (props) => {
 
             {activeTool === 'point' && (
                 <>
-                    {/* Top System Label */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[402]">
-                        <div className="bg-[#0F172A]/90 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xl backdrop-blur-sm border border-white/10 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-                            {getSystemLabel(settings.coordinateSystem)}
-                        </div>
+                    {/* Center Crosshair - Professional Surveying Reticle */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] pointer-events-none">
+                        <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            {/* Outer Circle */}
+                            <circle cx="30" cy="30" r="28" stroke="white" strokeWidth="1.5" className="drop-shadow-md opacity-80"/>
+                            <circle cx="30" cy="30" r="28" stroke="black" strokeWidth="1.5" strokeDasharray="4 4" className="opacity-50"/>
+                            
+                            {/* Inner Circle */}
+                            <circle cx="30" cy="30" r="8" stroke="#ef4444" strokeWidth="1.5" className="drop-shadow-sm"/>
+                            
+                            {/* Crosshairs with gap */}
+                            <line x1="30" y1="0" x2="30" y2="22" stroke="#ef4444" strokeWidth="1.5" className="drop-shadow-sm"/>
+                            <line x1="30" y1="38" x2="30" y2="60" stroke="#ef4444" strokeWidth="1.5" className="drop-shadow-sm"/>
+                            <line x1="0" y1="30" x2="22" y2="30" stroke="#ef4444" strokeWidth="1.5" className="drop-shadow-sm"/>
+                            <line x1="38" y1="30" x2="60" y2="30" stroke="#ef4444" strokeWidth="1.5" className="drop-shadow-sm"/>
+                            
+                            {/* Center Dot */}
+                            <circle cx="30" cy="30" r="1" fill="#ef4444" className="drop-shadow-sm"/>
+                        </svg>
                     </div>
 
-                    {/* Center Crosshair */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] pointer-events-none">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="20" cy="20" r="18" stroke="white" strokeWidth="2" className="drop-shadow-md opacity-50"/>
-                            <line x1="20" y1="0" x2="20" y2="40" stroke="#ef4444" strokeWidth="2" className="drop-shadow-sm"/>
-                            <line x1="0" y1="20" x2="40" y2="20" stroke="#ef4444" strokeWidth="2" className="drop-shadow-sm"/>
-                            <circle cx="20" cy="20" r="4" fill="#ef4444" className="drop-shadow-sm"/>
-                        </svg>
+                    {/* Real-time Coordinates Bubble attached to Crosshair */}
+                    <div className="absolute top-1/2 left-1/2 mt-8 -translate-x-1/2 z-[401] pointer-events-none">
+                        <div className="bg-[#0F172A]/90 text-white px-3 py-1.5 rounded-full font-mono text-[10px] font-bold shadow-xl backdrop-blur-md border border-white/10 flex items-center gap-3 whitespace-nowrap">
+                            <div className="flex gap-1">
+                                <span className="text-slate-400">X:</span>
+                                <span>{centerDisplayCoords.x.toFixed(settings.precision)}</span>
+                            </div>
+                            <div className="w-px h-3 bg-white/20"></div>
+                            <div className="flex gap-1">
+                                <span className="text-slate-400">Y:</span>
+                                <span>{centerDisplayCoords.y.toFixed(settings.precision)}</span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Bottom Controls Container */}
                     <div className="absolute bottom-8 left-0 right-0 z-[402] flex flex-col items-center gap-4 pointer-events-none px-4">
                         
-                        {/* Live Distance Indicator */}
-                        {distanceToLastPoint !== null && distanceToLastPoint > 0 && (
-                            <div className="mb-2 bg-[#4F46E5]/90 text-white px-4 py-1.5 rounded-xl text-xs font-bold shadow-lg backdrop-blur-sm border border-[#818CF8]/30 flex items-center gap-2 animate-fade-in pointer-events-auto">
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                <span>Dist: {convertDistance(distanceToLastPoint, settings.distanceUnit).toFixed(settings.precision)} {getDistanceUnitLabel(settings.distanceUnit)}</span>
-                            </div>
-                        )}
-
-                        {/* Coordinates */}
-                        <div className="bg-[#0F172A]/90 text-white px-4 sm:px-6 py-3 rounded-2xl font-mono text-xs sm:text-sm font-bold shadow-xl backdrop-blur-md border border-white/10 flex flex-col sm:flex-row gap-2 sm:gap-4 pointer-events-auto items-center text-center">
-                            <div className="flex gap-4">
-                                <span>X: {centerDisplayCoords.x.toFixed(settings.precision)}</span>
-                                <span className="text-[#64748B] hidden sm:inline">|</span>
-                                <span>Y: {centerDisplayCoords.y.toFixed(settings.precision)}</span>
-                            </div>
-                            {mouseWgsCoords && (
-                                <button 
-                                    onClick={() => onSettingsChange({ ...settings, coordinateSystem: getSuggestedZone(mouseWgsCoords.lat) })}
-                                    className="text-[10px] text-[#818CF8] bg-[#4F46E5]/20 px-2 py-0.5 rounded-lg border border-[#4F46E5]/30 hover:bg-[#4F46E5]/30 transition-colors cursor-pointer"
-                                    title="Cliquer pour utiliser cette zone"
-                                >
-                                    Zone suggérée: {getSystemLabel(getSuggestedZone(mouseWgsCoords.lat))}
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Mode Label */}
-                        <div className="bg-[#10B981] text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg pointer-events-auto">
-                            MODE: BORNE
-                        </div>
-
                         {/* Buttons */}
                         <div className="flex items-center gap-4 sm:gap-6 mt-2 pointer-events-auto">
                             {/* Undo / Back */}
@@ -547,8 +548,13 @@ const MapView: React.FC<MapViewProps> = (props) => {
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                             </button>
 
+                            {/* ADD Point with Photo */}
+                            <button onClick={() => setIsCapturingPhotoForNewPoint(true)} className="w-12 h-12 sm:w-14 sm:h-14 bg-white text-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-blue-600">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            </button>
+
                             {/* ADD Point */}
-                            <button onClick={handleAddCenterPoint} className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all border-4 border-white/20">
+                            <button onClick={() => handleAddCenterPoint()} className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-pink-500 to-rose-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all border-4 border-white/20">
                                 <svg className="w-8 h-8 sm:w-10 sm:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                             </button>
 
@@ -571,12 +577,11 @@ const MapView: React.FC<MapViewProps> = (props) => {
 
             {!isLocalSystem && activeTool !== 'point' && <LiveMeasureDisplay data={liveData} settings={settings} />}
             
-            {/* Affichage des coordonnées du curseur (hors mode point) */}
-            {activeTool !== 'point' && cursorDisplayCoords && (
-                <div className="absolute bottom-4 left-4 z-[400] pointer-events-none hidden sm:flex flex-col gap-1">
-                    <div className="bg-white/90 dark:bg-[#0F172A]/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-[#F1F5F9]/50 dark:border-[#1E293B]/50 flex gap-3 text-[11px] font-mono font-bold text-[#64748B] dark:text-[#94A3B8]">
-                        <span>X: {cursorDisplayCoords.x.toFixed(settings.precision)}</span>
-                        <span className="text-[#CBD5E1] dark:text-[#334155]">|</span>
+            {/* Affichage des coordonnées du curseur */}
+            {cursorDisplayCoords && (
+                <div className="absolute bottom-4 right-4 z-[400] pointer-events-none hidden sm:flex flex-col gap-1">
+                    <div className="bg-white/90 dark:bg-[#0F172A]/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-[#F1F5F9]/50 dark:border-[#1E293B]/50 flex gap-3 text-[11px] font-mono font-bold text-[#4F46E5] dark:text-[#818CF8] uppercase">
+                        <span>{settings.coordinateSystem.replace(/_/g, ' ')} X: {cursorDisplayCoords.x.toFixed(settings.precision)}</span>
                         <span>Y: {cursorDisplayCoords.y.toFixed(settings.precision)}</span>
                     </div>
                 </div>
@@ -587,6 +592,16 @@ const MapView: React.FC<MapViewProps> = (props) => {
                 parcelManager.updatePoint(activeParcelId!, photoTargetPointId, { image: img } as any);
                 setPhotoTargetPointId(null);
             }} onClose={() => setPhotoTargetPointId(null)} />}
+            
+            {isCapturingPhotoForNewPoint && (
+                <PhotoCaptureModal 
+                    onCapture={(img) => {
+                        handleAddCenterPoint(img);
+                        setIsCapturingPhotoForNewPoint(false);
+                    }} 
+                    onClose={() => setIsCapturingPhotoForNewPoint(false)} 
+                />
+            )}
             {selectedParcelForDetails && (
                 <ParcelDetailsModal 
                     parcel={selectedParcelForDetails} 

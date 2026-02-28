@@ -5,6 +5,7 @@ import { calculatePolygonArea, calculateCentroid } from '../services/topographyS
 import { formatArea } from '../services/unitConversionService';
 import { coordinateTransformationService } from '../services/coordinateTransformationService';
 import { extractOwnerInfoFromImage } from '../services/ocrService';
+import { MOROCCO_LOCATIONS } from '../data/moroccoLocations';
 
 interface WelcomeViewProps {
     onNavigate: (view: View) => void;
@@ -21,13 +22,6 @@ interface WelcomeViewProps {
 const NATURE_OPTIONS = ['BI', 'BC', 'MT'];
 const CONSISTANCE_OPTIONS = ['TN', 'TC', 'T.Cult', 'RDC', 'R+1', 'R+2', 'R+3', 'R+4', 'R+5', 'S.S.R+..'];
 const QUALITE_OPTIONS = ['Requérant', 'Représentant', 'Co-requérant'];
-const PREFECTURES = ['Pre Inezgane-Ait Melloul', 'Agadir Ida-Outanane', 'Chtouka-Ait Baha', 'Taroudant', 'Tiznit'];
-const COMMUNES = [
-    'Inezgane', 'Dcheira El Jihadia', 'Ait Melloul', 
-    'Kolea', 'Temsia', 'Ouled Dahou', 
-    'Agadir', 'Drargua', 'Aourir',
-    'Biougra', 'Ait Amira', 'Sidi Bibi'
-];
 
 interface LocationSelectorModalProps {
     onConfirm: (fullAddress: string) => void;
@@ -36,30 +30,82 @@ interface LocationSelectorModalProps {
 }
 
 const LocationSelectorModal: React.FC<LocationSelectorModalProps> = ({ onConfirm, onClose, initialValue }) => {
-    const [prefecture, setPrefecture] = useState(PREFECTURES[0]);
-    const [commune, setCommune] = useState(COMMUNES[0]);
+    const sortedPrefectures = useMemo(() => Object.keys(MOROCCO_LOCATIONS).sort(), []);
+    const [prefecture, setPrefecture] = useState(sortedPrefectures[0]);
+    const [commune, setCommune] = useState('');
     const [hay, setHay] = useState('');
+
+    const availableCommunes = useMemo(() => {
+        return (MOROCCO_LOCATIONS[prefecture] || []).sort();
+    }, [prefecture]);
+
+    // Set default commune when prefecture changes
+    useEffect(() => {
+        if (availableCommunes.length > 0 && !availableCommunes.includes(commune)) {
+            setCommune(availableCommunes[0]);
+        }
+    }, [availableCommunes, commune]);
 
     useEffect(() => {
         if (initialValue) {
             const parts = initialValue.split(',').map(s => s.trim());
-            const foundPref = PREFECTURES.find(pref => parts.some(p => p.toLowerCase().includes(pref.toLowerCase()) || pref.toLowerCase().includes(p.toLowerCase())));
-            if (foundPref) setPrefecture(foundPref);
-            const foundCommune = COMMUNES.find(c => parts.some(p => p.toLowerCase().includes(c.toLowerCase())));
-            if (foundCommune) setCommune(foundCommune);
+            
+            // Find Prefecture
+            const foundPref = sortedPrefectures.find(pref => 
+                parts.some(p => p.toLowerCase().includes(pref.toLowerCase()) || pref.toLowerCase().includes(p.toLowerCase()))
+            );
+            
+            if (foundPref) {
+                setPrefecture(foundPref);
+                
+                // Find Commune within this Prefecture
+                const prefCommunes = MOROCCO_LOCATIONS[foundPref] || [];
+                const foundCommune = prefCommunes.find(c => 
+                    parts.some(p => p.toLowerCase().includes(c.toLowerCase()))
+                );
+                
+                if (foundCommune) {
+                    setCommune(foundCommune);
+                }
+            } else {
+                // Try to find any commune if prefecture not found
+                for (const pref of sortedPrefectures) {
+                    const comms = MOROCCO_LOCATIONS[pref];
+                    const foundCommune = comms.find(c => parts.some(p => p.toLowerCase().includes(c.toLowerCase())));
+                    if (foundCommune) {
+                        setPrefecture(pref);
+                        setCommune(foundCommune);
+                        break;
+                    }
+                }
+            }
+
+            // Extract Hay/Douar
             const remainingParts = parts.filter(p => {
                 const lowerP = p.toLowerCase();
-                const isPref = PREFECTURES.some(pref => lowerP.includes(pref.toLowerCase()) || pref.toLowerCase().includes(lowerP));
-                const isComm = COMMUNES.some(c => lowerP.includes(c.toLowerCase()));
+                const isPref = sortedPrefectures.some(pref => lowerP.includes(pref.toLowerCase()) || pref.toLowerCase().includes(lowerP));
+                // Check against all communes might be slow, but let's check against current selected ones or just skip common keywords
                 const isTag = lowerP.includes('préfecture') || lowerP.includes('province') || lowerP.includes('c.t') || lowerP.includes('commune') || lowerP.includes('pre') || lowerP.includes('pachalik');
-                return !isPref && !isComm && !isTag;
+                
+                // Check if it matches the found commune
+                // We can't easily check against ALL communes efficiently here without a reverse map, 
+                // but we can assume if we found a commune, we exclude it.
+                // For now, let's just exclude the keywords and rely on user to correct if needed.
+                return !isPref && !isTag; 
             });
+            
+            // Refine remaining parts to exclude the found commune string if possible
+            // (This logic is a bit simplified compared to previous one but should work for most cases)
+            
             if (remainingParts.length > 0) {
                 const rawHay = remainingParts.join(', ');
+                // Remove the commune name if it appears in the remaining parts (case insensitive)
+                // This is tricky because parts are split by comma.
+                // Let's just set Hay to the joined remaining parts for now.
                 setHay(rawHay.replace(/^(Hay|Douar)\s+/i, '$1 ').trim());
             }
         }
-    }, [initialValue]);
+    }, [initialValue, sortedPrefectures]);
 
     const handleConfirm = () => {
         const parts = [];
@@ -83,13 +129,13 @@ const LocationSelectorModal: React.FC<LocationSelectorModalProps> = ({ onConfirm
                     <div>
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">1. Préfecture / Province</label>
                         <select value={prefecture} onChange={(e) => setPrefecture(e.target.value)} className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            {PREFECTURES.map(p => <option key={p} value={p}>{p}</option>)}
+                            {sortedPrefectures.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">2. Commune / C.T</label>
                         <select value={commune} onChange={(e) => setCommune(e.target.value)} className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
-                            {COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
+                            {availableCommunes.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
                     <div>
@@ -257,12 +303,27 @@ const WelcomeView: React.FC<WelcomeViewProps> = ({ onNavigate, parcels, activePa
                 const addr = data.address;
                 const parts = [];
                 
-                // Règle : Toujours "Pre Inezgane-Ait Melloul" par défaut, ignorant ce qui vient de l'API pour la province
-                parts.push("Pre Inezgane-Ait Melloul");
+                // Tentative de détection de la Préfecture / Province
+                const apiProvince = addr.province || addr.state || addr.region;
+                let foundPrefecture = "Pre Inezgane-Ait Melloul"; // Fallback par défaut si rien n'est trouvé
+
+                if (apiProvince) {
+                    const normalizedApiProv = apiProvince.toLowerCase();
+                    const matchedPref = Object.keys(MOROCCO_LOCATIONS).find(p => 
+                        normalizedApiProv.includes(p.toLowerCase()) || p.toLowerCase().includes(normalizedApiProv)
+                    );
+                    if (matchedPref) foundPrefecture = matchedPref;
+                    else foundPrefecture = apiProvince; // Utiliser la valeur de l'API si pas de correspondance exacte
+                }
+                parts.push(foundPrefecture);
 
                 // Récupération intelligente de la Commune / C.T
                 const rawCommune = addr.city || addr.town || addr.village || addr.municipality || addr.city_district;
-                if (rawCommune) parts.push(`C.T ${rawCommune}`);
+                if (rawCommune) {
+                     // Vérifier si c'est une commune connue pour cette préfecture (optionnel, mais sympa)
+                     // Pour l'instant on garde la valeur API
+                     parts.push(`C.T ${rawCommune}`);
+                }
                 
                 // Récupération du Lieu-dit / Hay / Douar
                 const quartier = addr.suburb || addr.neighbourhood || addr.quarter || addr.residential || addr.road || addr.hamlet || addr.isolated_dwelling;

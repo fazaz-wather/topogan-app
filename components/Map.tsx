@@ -263,6 +263,71 @@ const Map: React.FC<MapProps> = React.memo(({
         parcelLayer.clearLayers();
         pointLayer.clearLayers();
 
+        const addLongPress = (layer: L.Layer, entity: any) => {
+            let pressTimer: any;
+            let startPos: { x: number, y: number } | null = null;
+
+            const clearTimer = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+                startPos = null;
+            };
+
+            const handleStart = (e: any, isTouch: boolean) => {
+                clearTimer();
+                const event = e.originalEvent;
+                const clientX = isTouch && event.touches ? event.touches[0].clientX : event.clientX;
+                const clientY = isTouch && event.touches ? event.touches[0].clientY : event.clientY;
+                startPos = { x: clientX, y: clientY };
+
+                pressTimer = setTimeout(() => {
+                    const map = mapRef.current;
+                    if (map && startPos) {
+                        const latlng = map.containerPointToLatLng([startPos.x, startPos.y]);
+                        const syntheticEvent = {
+                            ...e,
+                            latlng,
+                            originalEvent: {
+                                ...e.originalEvent,
+                                clientX: startPos.x,
+                                clientY: startPos.y,
+                                preventDefault: () => {}
+                            },
+                            target: layer
+                        };
+                        onMapContextMenu(syntheticEvent, entity);
+                    }
+                    clearTimer();
+                }, 600); // 600ms long press
+            };
+
+            const handleMove = (e: any, isTouch: boolean) => {
+                if (!startPos) return;
+                const event = e.originalEvent;
+                const clientX = isTouch && event.touches ? event.touches[0].clientX : event.clientX;
+                const clientY = isTouch && event.touches ? event.touches[0].clientY : event.clientY;
+                if (clientX === undefined || clientY === undefined) return;
+                
+                const dx = clientX - startPos.x;
+                const dy = clientY - startPos.y;
+                if (Math.sqrt(dx * dx + dy * dy) > 10) {
+                    clearTimer();
+                }
+            };
+
+            layer.on('mousedown', (e) => handleStart(e, false));
+            layer.on('mousemove', (e) => handleMove(e, false));
+            layer.on('mouseup', clearTimer);
+            layer.on('mouseout', clearTimer);
+
+            layer.on('touchstart', (e) => handleStart(e, true));
+            layer.on('touchmove', (e) => handleMove(e, true));
+            layer.on('touchend', clearTimer);
+            layer.on('touchcancel', clearTimer);
+        };
+
         if (layersVisibility.polygon) {
             parcels.forEach(p => {
                 if (!p.isVisible || p.points.length < 2) return;
@@ -275,39 +340,7 @@ const Map: React.FC<MapProps> = React.memo(({
                     polygon.on('click', (e) => { L.DomEvent.stopPropagation(e); onSelectParcel(p.id); });
                     polygon.on('contextmenu', (e) => onMapContextMenu(e, p));
                     
-                    // Long press support for mobile
-                    let pressTimer: any;
-                    polygon.on('mousedown', (e) => {
-                        pressTimer = setTimeout(() => {
-                            onMapContextMenu(e, p);
-                        }, 800);
-                    });
-                    polygon.on('mouseup', () => clearTimeout(pressTimer));
-                    polygon.on('mouseout', () => clearTimeout(pressTimer));
-                    polygon.on('touchstart', (e: any) => {
-                         pressTimer = setTimeout(() => {
-                            // Touch event doesn't have latlng directly in the same way, need to extract
-                            const touch = e.originalEvent.touches[0];
-                            const map = mapRef.current;
-                            if (map && touch) {
-                                const latlng = map.containerPointToLatLng([touch.clientX, touch.clientY]);
-                                // Create a synthetic event for context menu
-                                const syntheticEvent = {
-                                    ...e,
-                                    latlng,
-                                    originalEvent: {
-                                        ...e.originalEvent,
-                                        clientX: touch.clientX,
-                                        clientY: touch.clientY,
-                                        preventDefault: () => {}
-                                    },
-                                    target: polygon
-                                };
-                                onMapContextMenu(syntheticEvent, p);
-                            }
-                        }, 800);
-                    });
-                    polygon.on('touchend', () => clearTimeout(pressTimer));
+                    addLongPress(polygon, p);
 
                     parcelLayer.addLayer(polygon);
                 } else {
@@ -347,37 +380,7 @@ const Map: React.FC<MapProps> = React.memo(({
                     });
                     marker.on('contextmenu', (e) => onMapContextMenu(e, pt));
                     
-                    // Long press support for mobile
-                    let pressTimer: any;
-                    marker.on('mousedown', (e) => {
-                        pressTimer = setTimeout(() => {
-                            onMapContextMenu(e, pt);
-                        }, 800);
-                    });
-                    marker.on('mouseup', () => clearTimeout(pressTimer));
-                    marker.on('mouseout', () => clearTimeout(pressTimer));
-                    marker.on('touchstart', (e: any) => {
-                         pressTimer = setTimeout(() => {
-                            const touch = e.originalEvent.touches[0];
-                            const map = mapRef.current;
-                            if (map && touch) {
-                                const latlng = map.containerPointToLatLng([touch.clientX, touch.clientY]);
-                                const syntheticEvent = {
-                                    ...e,
-                                    latlng,
-                                    originalEvent: {
-                                        ...e.originalEvent,
-                                        clientX: touch.clientX,
-                                        clientY: touch.clientY,
-                                        preventDefault: () => {}
-                                    },
-                                    target: marker
-                                };
-                                onMapContextMenu(syntheticEvent, pt);
-                            }
-                        }, 800);
-                    });
-                    marker.on('touchend', () => clearTimeout(pressTimer));
+                    addLongPress(marker, pt);
 
                     pointLayer.addLayer(marker);
                 });
@@ -389,8 +392,9 @@ const Map: React.FC<MapProps> = React.memo(({
     useEffect(() => {
         const layer = layersRef.current.virtualLine;
         layer.clearLayers();
+        const map = mapRef.current;
 
-        if (trackingLine) {
+        if (trackingLine && map) {
             const latlngs = [
                 [trackingLine.start.y, trackingLine.start.x] as [number, number],
                 [trackingLine.end.y, trackingLine.end.x] as [number, number]
@@ -404,11 +408,28 @@ const Map: React.FC<MapProps> = React.memo(({
                 opacity: 0.8
             }).addTo(layer);
 
-            // Distance Label centered on the line (or near end)
-            L.marker([trackingLine.end.y, trackingLine.end.x], {
+            // Calculate angle for text rotation
+            const p1 = map.latLngToContainerPoint([trackingLine.start.y, trackingLine.start.x]);
+            const p2 = map.latLngToContainerPoint([trackingLine.end.y, trackingLine.end.x]);
+            
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            
+            // Keep text readable (prevent upside down)
+            if (angle > 90 || angle < -90) {
+                angle += 180;
+            }
+
+            // Midpoint for label placement
+            const midLat = (trackingLine.start.y + trackingLine.end.y) / 2;
+            const midLng = (trackingLine.start.x + trackingLine.end.x) / 2;
+
+            // Distance Label oriented along the line and above it
+            L.marker([midLat, midLng], {
                 icon: L.divIcon({
                     className: 'bg-transparent',
-                    html: `<div class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap transform -translate-y-8 -translate-x-1/2">${trackingLine.label}</div>`,
+                    html: `<div class="text-blue-600 font-bold text-xs whitespace-nowrap" style="transform: translate(-50%, -50%) rotate(${angle}deg) translateY(-12px); text-shadow: 0 0 3px white, 0 0 3px white;">${trackingLine.label}</div>`,
                     iconSize: [0, 0]
                 }),
                 interactive: false

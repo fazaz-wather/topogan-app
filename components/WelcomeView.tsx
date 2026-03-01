@@ -402,12 +402,12 @@ const WelcomeView: React.FC<WelcomeViewProps> = ({ onNavigate, parcels, activePa
     };
 
     return (
-        <div className="relative h-full bg-gray-50 dark:bg-gray-900 overflow-y-auto scroll-smooth">
+        <div className="relative h-full bg-gray-50 dark:bg-gray-900 overflow-y-auto scroll-smooth pb-24 md:pb-6">
             <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-8">
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">TOPOGAN <span className="font-light text-gray-400">Suite</span></h1>
-                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Outils de topographie foncière & plans cadastraux.</p>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Outils de topographie foncière & Bornage.</p>
                     </div>
                     <div className="pt-6">
                         <SectionHeader title="Fiche de la Parcelle Active" />

@@ -35,7 +35,7 @@ const MappeCalculationView: React.FC<MappeCalculationViewProps> = ({ settings, s
     };
 
     return (
-        <div className="h-full bg-[#111111] text-white flex flex-col items-center pt-10 px-4 overflow-y-auto font-sans">
+        <div className="h-full bg-[#111111] text-white flex flex-col items-center pt-10 px-4 pb-24 md:pb-4 overflow-y-auto font-sans">
             <h2 className="text-xl font-bold text-gray-200 mb-8 self-start w-full max-w-md mx-auto">Détermination de mappe</h2>
 
             <div className="w-full max-w-md space-y-6">

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Point, AppSettings, Notification, CalculationResults } from '../types';
 import CoordinateInput from './CoordinateInput';
 import CSVImporter from './CSVImporter';
@@ -10,6 +10,7 @@ import { usePointsManager } from '../hooks/usePointsManager';
 import MultiModalImporter from './MultiModalImporter';
 import ResultsDisplay from './ResultsDisplay';
 import { useParcels } from '../hooks/useParcels';
+import PhotoCaptureModal from './PhotoCaptureModal';
 
 interface PointManagementPanelProps {
     points: Point[];
@@ -57,6 +58,7 @@ const PointManagementPanel: React.FC<PointManagementPanelProps> = ({
     compact = false,
 }) => {
     const { addPoints, addPoint, deletePoint, clearPoints, movePoint, updatePoint } = usePointsManager(setPoints, setNotification, getNextPointId);
+    const [photoTargetPointId, setPhotoTargetPointId] = useState<number | null>(null);
 
     const handleImportLayers = (layers: { layerName: string; points: { x: number; y: number }[] }[]) => {
         if (layers.length === 0) {
@@ -82,6 +84,23 @@ const PointManagementPanel: React.FC<PointManagementPanelProps> = ({
         setNotification(`${layers.length} couche(s) importée(s) avec succès (${totalPoints} points).`, 'success');
     };
 
+    const handlePhotoSave = (photoData: string) => {
+        if (photoTargetPointId !== null) {
+            setPoints(prevPoints => prevPoints.map(p => 
+                p.id === photoTargetPointId ? { ...p, image: photoData } : p
+            ));
+            
+            // Also update via parcelManager if activeParcelId is present
+            if (activeParcelId && parcelManager) {
+                // @ts-ignore
+                parcelManager.updatePoint(activeParcelId, photoTargetPointId, { image: photoData });
+            }
+            
+            setPhotoTargetPointId(null);
+            setNotification("Photo ajoutée avec succès", "success");
+        }
+    };
+
     return (
         <div className={`bsport-card flex flex-col h-full ${compact ? 'p-3 space-y-3' : 'p-5 space-y-5'}`}>
             <div className="flex justify-between items-center flex-shrink-0">
@@ -103,6 +122,7 @@ const PointManagementPanel: React.FC<PointManagementPanelProps> = ({
                         onClearPoints={clearPoints}
                         movePoint={movePoint}
                         onUpdatePoint={updatePoint}
+                        onAddPhoto={setPhotoTargetPointId}
                         settings={settings}
                         highlightedPointId={highlightedPointId}
                         setHighlightedPointId={setHighlightedPointId}
@@ -147,6 +167,12 @@ const PointManagementPanel: React.FC<PointManagementPanelProps> = ({
                     </div>
                 )}
             </div>
+            {photoTargetPointId !== null && (
+                <PhotoCaptureModal 
+                    onCapture={handlePhotoSave} 
+                    onClose={() => setPhotoTargetPointId(null)} 
+                />
+            )}
         </div>
     );
 };

@@ -200,17 +200,60 @@ const MapView: React.FC<MapViewProps> = (props) => {
 
     // Prépare la ligne virtuelle à afficher sur la carte Leaflet (en coordonnées WGS84)
     const trackingLine = useMemo(() => {
-        if (activeTool !== 'point' || !activeParcelId || !mouseWgsCoords || !surveyData) return null;
-        const mappedParcel = parcelsForMap.find(p => p.id === activeParcelId);
-        if (!mappedParcel || mappedParcel.points.length === 0) return null;
-        const lastPointWgs = mappedParcel.points[mappedParcel.points.length - 1];
-        
-        return {
-            start: { x: lastPointWgs.x, y: lastPointWgs.y },
-            end: { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat },
-            label: `${convertDistance(surveyData.distance, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}`
-        };
-    }, [activeTool, activeParcelId, parcelsForMap, mouseWgsCoords, surveyData, settings.distanceUnit, settings.precision]);
+        // Cas 1: Ajout de point (Active Tool = point)
+        if (activeTool === 'point' && activeParcelId && mouseWgsCoords && surveyData) {
+            const mappedParcel = parcelsForMap.find(p => p.id === activeParcelId);
+            if (!mappedParcel || mappedParcel.points.length === 0) return null;
+            const lastPointWgs = mappedParcel.points[mappedParcel.points.length - 1];
+            
+            return {
+                start: { x: lastPointWgs.x, y: lastPointWgs.y },
+                end: { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat },
+                label: `${convertDistance(surveyData.distance, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}`
+            };
+        }
+
+        // Cas 2: Déplacement de point (Moving Point)
+        if (movingPointId !== null && mouseWgsCoords && activeParcelId) {
+            const mappedParcel = parcelsForMap.find(p => p.id === activeParcelId);
+            const rawParcel = parcels.find(p => p.id === activeParcelId);
+            
+            if (!mappedParcel || !rawParcel) return null;
+
+            const index = mappedParcel.points.findIndex(p => p.id === movingPointId);
+            if (index === -1) return null;
+
+            // Trouver le point précédent (pour tracer la ligne depuis celui-ci)
+            let prevIndex = index - 1;
+            if (prevIndex < 0) prevIndex = mappedParcel.points.length - 1; // Boucler si polygone
+            
+            // Si c'est le seul point ou si on boucle sur soi-même (ex: 1 point), ignorer
+            if (prevIndex === index) return null;
+
+            const prevPointWgs = mappedParcel.points[prevIndex];
+            const rawPrevPoint = rawParcel.points[prevIndex];
+
+            // Calculer la distance réelle (en utilisant le système de coordonnées actuel)
+            // On transforme la position souris (WGS84) vers le système local pour le calcul
+            const mouseLocal = coordinateTransformationService.transform(
+                { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat }, 
+                'wgs84', 
+                settings.coordinateSystem
+            );
+
+            if (!mouseLocal) return null;
+
+            const dist = calculateDistanceBetweenPoints(rawPrevPoint, { id: -1, x: mouseLocal.x, y: mouseLocal.y }, settings.coordinateSystem);
+
+            return {
+                start: { x: prevPointWgs.x, y: prevPointWgs.y },
+                end: { x: mouseWgsCoords.lng, y: mouseWgsCoords.lat },
+                label: `${convertDistance(dist, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}`
+            };
+        }
+
+        return null;
+    }, [activeTool, activeParcelId, parcelsForMap, mouseWgsCoords, surveyData, settings, movingPointId, parcels]);
 
 
     const handleImportClick = () => {
@@ -512,6 +555,7 @@ const MapView: React.FC<MapViewProps> = (props) => {
                             settings={settings} 
                             onClose={() => setIsInfoPanelVisible(false)}
                             onOpenDetails={() => setSelectedParcelForDetails(activeParcel)}
+                            onUpdateParcel={(updates) => parcelManager.updateParcel(activeParcel.id, updates)}
                         />
                     )}
                     

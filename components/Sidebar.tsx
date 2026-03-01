@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onOpenSettin
                </div>
                <div>
                  <h1 className="text-xl font-bold tracking-tight text-[#0F172A] dark:text-white leading-none">Topogan</h1>
-                 <span className="text-[10px] font-semibold text-[#64748B] dark:text-[#94A3B8] uppercase tracking-wider">Geosystems PRO</span>
+                 <span className="text-[10px] font-semibold text-[#64748B] dark:text-[#94A3B8] uppercase tracking-wider">D.GANANI</span>
                </div>
              </div>
           </div>

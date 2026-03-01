@@ -16,21 +16,24 @@ const tabs: { label: string; view: View; icon: React.ReactNode }[] = [
 
 const BottomNav: React.FC<BottomNavProps> = ({ currentView, onNavigate }) => {
     return (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 h-16 flex items-center justify-around px-4 z-[40] pb-safe">
+        <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 shadow-2xl shadow-black/10 rounded-2xl px-6 py-3 flex items-center gap-6 z-[40] transition-all duration-300 hover:scale-[1.02] hover:bg-white/90 dark:hover:bg-gray-900/90">
             {tabs.map((tab) => (
                 <button
                     key={tab.view}
                     onClick={() => onNavigate(tab.view)}
-                    className={`flex flex-col items-center justify-center gap-1 transition-all duration-300 w-16 relative ${
-                        currentView === tab.view ? 'text-blue-600' : 'text-gray-400'
+                    className={`flex flex-col items-center justify-center gap-1 transition-all duration-300 relative group ${
+                        currentView === tab.view ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                     }`}
                 >
-                    <div className={`transition-transform duration-300 ${currentView === tab.view ? 'scale-110' : ''}`}>
+                    <div className={`transition-transform duration-300 p-2 rounded-xl ${
+                        currentView === tab.view 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 scale-110 -translate-y-1' 
+                            : 'group-hover:-translate-y-0.5'
+                    }`}>
                         {tab.icon}
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-tighter">{tab.label}</span>
                     {currentView === tab.view && (
-                        <div className="absolute -bottom-1 w-1 h-1 bg-blue-600 rounded-full" />
+                        <div className="absolute -bottom-2 w-1 h-1 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" />
                     )}
                 </button>
             ))}

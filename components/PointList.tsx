@@ -11,6 +11,7 @@ interface PointItemProps {
   index: number;
   onDeletePoint: (id: number) => void;
   onUpdatePoint: (id: number, coords: { x: number; y: number }) => void;
+  onAddPhoto: (id: number) => void;
   movePoint: (dragIndex: number, hoverIndex: number) => void;
   settings: AppSettings;
   onHover: (id: number | null) => void;
@@ -18,7 +19,7 @@ interface PointItemProps {
   isSearchActive: boolean;
 }
 
-const PointItem: React.FC<PointItemProps> = ({ point, index, onDeletePoint, onUpdatePoint, movePoint, settings, onHover, isHighlighted, isSearchActive }) => {
+const PointItem: React.FC<PointItemProps> = ({ point, index, onDeletePoint, onUpdatePoint, onAddPhoto, movePoint, settings, onHover, isHighlighted, isSearchActive }) => {
     const ref = useRef<HTMLDivElement>(null);
     const { precision, coordinateSystem } = settings;
     
@@ -105,7 +106,7 @@ const PointItem: React.FC<PointItemProps> = ({ point, index, onDeletePoint, onUp
     
     drag(drop(ref));
 
-    const commonInputClass = "bsport-input py-1 px-2 text-xs h-auto";
+    const commonInputClass = "bsport-input py-1 px-2 text-xs h-auto w-full";
 
     return (
         <div
@@ -114,63 +115,70 @@ const PointItem: React.FC<PointItemProps> = ({ point, index, onDeletePoint, onUp
             onMouseLeave={() => onHover(null)}
             data-handler-id={handlerId}
             style={{ opacity: isDragging ? 0.5 : 1 }}
-            className={`flex items-center justify-between p-3 rounded-xl mb-2 shadow-sm transition-all duration-200 border border-transparent ${isSearchActive ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${isHighlighted ? 'bg-[#4F46E5]/10 border-[#4F46E5]/30' : 'bg-[#F8FAFC] dark:bg-[#1E293B] hover:border-[#E2E8F0] dark:hover:border-[#334155]'}`}
+            className={`flex items-center p-2 rounded-lg mb-1 transition-all duration-200 border border-transparent text-xs ${isSearchActive ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${isHighlighted ? 'bg-[#4F46E5]/10 border-[#4F46E5]/30' : 'bg-white dark:bg-[#1E293B] hover:bg-gray-50 dark:hover:bg-[#334155] border-gray-100 dark:border-gray-700'}`}
         >
-          <div className="flex items-center space-x-3 flex-grow min-w-0">
-              <span className="font-mono text-xs font-bold text-[#4F46E5] w-auto px-2 h-6 flex items-center justify-center bg-[#4F46E5]/10 rounded-lg flex-shrink-0">B{index + 1}</span>
-              <div className="flex-grow font-mono text-sm min-w-0">
-                  <div className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="font-semibold text-[#64748B] dark:text-[#94A3B8]">
-                          ID: {point.id}
-                          {point.image && (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-[#4F46E5] ml-1 inline" viewBox="0 0 20 20" fill="currentColor">
-                                <title>Photo disponible</title>
-                                <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                      </span>
-                      <div onDoubleClick={handleDoubleClick} title={isEditing ? '' : "Double-cliquez pour modifier"}>
-                          {isEditing ? (
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                                  <label htmlFor={`x-edit-${point.id}`} className="font-semibold text-xs">{labels.x}:</label>
-                                  <input 
-                                    id={`x-edit-${point.id}`}
-                                    type="number"
-                                    step="any"
-                                    value={editX}
-                                    onChange={(e) => setEditX(e.target.value)}
-                                    onBlur={handleSave}
-                                    onKeyDown={handleKeyDown}
-                                    className={`${commonInputClass} flex-1 min-w-[10ch]`}
-                                    autoFocus
-                                    onFocus={(e) => e.target.select()}
-                                  />
-                                  <label htmlFor={`y-edit-${point.id}`} className="font-semibold text-xs sm:ml-2">{labels.y}:</label>
-                                  <input 
-                                    id={`y-edit-${point.id}`}
-                                    type="number"
-                                    step="any"
-                                    value={editY}
-                                    onChange={(e) => setEditY(e.target.value)}
-                                    onBlur={handleSave}
-                                    onKeyDown={handleKeyDown}
-                                    className={`${commonInputClass} flex-1 min-w-[10ch]`}
-                                  />
-                              </div>
-                          ) : (
-                              <span className="cursor-text">
-                                  {labels.x}: {point.x.toFixed(displayPrecision)}, {labels.y}: {point.y.toFixed(displayPrecision)}
-                              </span>
-                          )}
-                      </div>
-                  </div>
-              </div>
+          {/* ID Column */}
+          <div className="w-12 flex-shrink-0 font-mono font-bold text-[#4F46E5]">B{index + 1}</div>
+          
+          {/* Coordinates Columns */}
+          <div className="flex-grow grid grid-cols-2 gap-2 px-2" onDoubleClick={handleDoubleClick} title={isEditing ? '' : "Double-cliquez pour modifier"}>
+              {isEditing ? (
+                  <>
+                      <input 
+                        id={`x-edit-${point.id}`}
+                        type="number"
+                        step="any"
+                        value={editX}
+                        onChange={(e) => setEditX(e.target.value)}
+                        onBlur={handleSave}
+                        onKeyDown={handleKeyDown}
+                        className={commonInputClass}
+                        autoFocus
+                        onFocus={(e) => e.target.select()}
+                        placeholder="X"
+                      />
+                      <input 
+                        id={`y-edit-${point.id}`}
+                        type="number"
+                        step="any"
+                        value={editY}
+                        onChange={(e) => setEditY(e.target.value)}
+                        onBlur={handleSave}
+                        onKeyDown={handleKeyDown}
+                        className={commonInputClass}
+                        placeholder="Y"
+                      />
+                  </>
+              ) : (
+                  <>
+                      <div className="font-mono truncate text-gray-600 dark:text-gray-300">{point.x.toFixed(displayPrecision)}</div>
+                      <div className="font-mono truncate text-gray-600 dark:text-gray-300">{point.y.toFixed(displayPrecision)}</div>
+                  </>
+              )}
           </div>
-          <button onClick={() => onDeletePoint(point.id)} aria-label={`Supprimer le sommet ${point.id}`} className="text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1 rounded-full transition duration-200 ml-2 flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-          </button>
+
+          {/* Actions Column */}
+          <div className="flex items-center space-x-1 w-16 justify-end flex-shrink-0">
+              <button 
+                  onClick={() => onAddPhoto(point.id)} 
+                  title={point.image ? "Modifier la photo" : "Ajouter une photo"}
+                  className={`p-1 rounded transition duration-200 ${point.image ? 'text-[#4F46E5] hover:text-[#4338CA]' : 'text-gray-400 hover:text-[#4F46E5]'}`}
+              >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                  </svg>
+              </button>
+              <button onClick={() => setIsEditing(true)} aria-label={`Modifier le sommet ${point.id}`} className="text-gray-400 hover:text-blue-500 p-1 rounded transition duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                  </svg>
+              </button>
+              <button onClick={() => onDeletePoint(point.id)} aria-label={`Supprimer le sommet ${point.id}`} className="text-gray-400 hover:text-red-500 p-1 rounded transition duration-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+              </button>
+          </div>
         </div>
     );
 };
@@ -180,6 +188,7 @@ interface PointListProps {
   points: Point[];
   onDeletePoint: (id: number) => void;
   onUpdatePoint: (id: number, coords: { x: number; y: number }) => void;
+  onAddPhoto: (id: number) => void;
   onClearPoints: () => void;
   movePoint: (dragIndex: number, hoverIndex: number) => void;
   settings: AppSettings;
@@ -187,7 +196,7 @@ interface PointListProps {
   setHighlightedPointId: (id: number | null) => void;
 }
 
-const PointList: React.FC<PointListProps> = ({ points, onDeletePoint, onUpdatePoint, onClearPoints, movePoint, settings, highlightedPointId, setHighlightedPointId }) => {
+const PointList: React.FC<PointListProps> = ({ points, onDeletePoint, onUpdatePoint, onAddPhoto, onClearPoints, movePoint, settings, highlightedPointId, setHighlightedPointId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredPointId, setHoveredPointId] = useState<number | null>(null);
 
@@ -219,6 +228,13 @@ const PointList: React.FC<PointListProps> = ({ points, onDeletePoint, onUpdatePo
   }, [points, searchTerm, settings]);
 
   const isSearchActive = !!searchTerm.trim();
+
+  const labels = useMemo(() => {
+      switch (settings.coordinateSystem) {
+          case 'wgs84': return { x: 'Lon', y: 'Lat' };
+          default: return { x: 'X', y: 'Y' };
+      }
+  }, [settings.coordinateSystem]);
 
   useEffect(() => {
     if (hoveredPointId !== null) {
@@ -268,6 +284,14 @@ const PointList: React.FC<PointListProps> = ({ points, onDeletePoint, onUpdatePo
         <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Aucun sommet ne correspond à votre recherche.</p>
       ) : (
         <div className="max-h-60 overflow-y-auto pr-2">
+          <div className="flex items-center p-2 mb-1 text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50 rounded-lg sticky top-0 z-10 backdrop-blur-sm">
+              <div className="w-12 flex-shrink-0">N°</div>
+              <div className="flex-grow grid grid-cols-2 gap-2 px-2">
+                  <div>{labels.x}</div>
+                  <div>{labels.y}</div>
+              </div>
+              <div className="w-14 flex-shrink-0 text-right">Actions</div>
+          </div>
           {filteredPoints.map((point) => {
              const originalIndex = points.findIndex(p => p.id === point.id);
              return (
@@ -277,6 +301,7 @@ const PointList: React.FC<PointListProps> = ({ points, onDeletePoint, onUpdatePo
                   point={point} 
                   onDeletePoint={onDeletePoint} 
                   onUpdatePoint={onUpdatePoint}
+                  onAddPhoto={onAddPhoto}
                   movePoint={movePoint} 
                   settings={settings}
                   onHover={setHoveredPointId}

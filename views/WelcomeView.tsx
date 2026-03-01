@@ -401,7 +401,7 @@ const WelcomeView: React.FC<WelcomeViewProps> = ({ onNavigate, parcels, activePa
                 <div className="bsport-card">
                     <div className="mb-8">
                         <h1 className="text-3xl md:text-4xl font-extrabold text-[#0F172A] dark:text-white tracking-tight">TOPOGAN <span className="font-light text-[#64748B]">Suite</span></h1>
-                        <p className="mt-2 text-[15px] text-[#64748B] dark:text-[#94A3B8]">Outils de topographie foncière & plans cadastraux.</p>
+                        <p className="mt-2 text-[15px] text-[#64748B] dark:text-[#94A3B8]">Outils de topographie foncière & Bornage.</p>
                     </div>
                     <div className="pt-2">
                         <SectionHeader title="Fiche de la Parcelle Active" />

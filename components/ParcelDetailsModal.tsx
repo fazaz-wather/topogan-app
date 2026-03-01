@@ -25,6 +25,9 @@ const DetailRow: React.FC<{ label: string; value: string | number | undefined; i
 const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, settings, onClose, parcelManager }) => {
     const [photoTargetPointId, setPhotoTargetPointId] = useState<number | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [editingPoint, setEditingPoint] = useState<Parcel['points'][0] | null>(null);
+    const [editForm, setEditForm] = useState({ x: '', y: '' });
+    const [isCapturingParcelPhoto, setIsCapturingParcelPhoto] = useState(false);
 
     const { area, perimeter } = useMemo(() => {
         if (parcel.points.length < 3) return { area: 0, perimeter: 0 };
@@ -44,9 +47,34 @@ const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, setting
         setPhotoTargetPointId(null);
     };
 
+    const handleParcelPhotoSave = (photoData: string) => {
+        if (parcelManager) {
+            parcelManager.updateParcel(parcel.id, { image: photoData });
+        }
+        setIsCapturingParcelPhoto(false);
+    };
+
     const handleDeletePhoto = (pointId: number) => {
         if (parcelManager && window.confirm("Supprimer la photo de ce sommet ?")) {
             parcelManager.updatePoint(parcel.id, pointId, { image: undefined });
+        }
+    };
+
+    const startEditing = (point: Parcel['points'][0]) => {
+        setEditingPoint(point);
+        setEditForm({ x: point.x.toString(), y: point.y.toString() });
+    };
+
+    const savePointEdit = () => {
+        if (editingPoint && parcelManager) {
+            const x = parseFloat(editForm.x);
+            const y = parseFloat(editForm.y);
+            if (!isNaN(x) && !isNaN(y)) {
+                parcelManager.updatePoint(parcel.id, editingPoint.id, { x, y });
+                setEditingPoint(null);
+            } else {
+                alert("Coordonnées invalides");
+            }
         }
     };
 
@@ -81,6 +109,54 @@ const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, setting
                     <p className="text-[11px] font-semibold text-[#64748B] dark:text-[#94A3B8] mb-6 uppercase tracking-wider">ID: {parcel.id}</p>
 
                     <div className="space-y-6">
+                        {/* Photo de la Parcelle */}
+                        <div>
+                            <h3 className="bsport-label">Photo de la Parcelle</h3>
+                            <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 group">
+                                {parcel.image ? (
+                                    <>
+                                        <img 
+                                            src={parcel.image.startsWith('data:') ? parcel.image : `data:image/jpeg;base64,${parcel.image}`} 
+                                            alt="Parcel Cover" 
+                                            className="w-full h-full object-cover cursor-pointer"
+                                            onClick={() => setPreviewImage(parcel.image!.startsWith('data:') ? parcel.image! : `data:image/jpeg;base64,${parcel.image}`)}
+                                        />
+                                        {parcelManager && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); if(window.confirm("Supprimer la photo ?")) parcelManager.updateParcel(parcel.id, { image: undefined }); }}
+                                                className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg shadow-lg hover:bg-red-600 transition-colors z-10"
+                                                title="Supprimer la photo"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <span className="text-[10px] font-medium">Aucune photo</span>
+                                    </div>
+                                )}
+                                
+                                {parcelManager && (
+                                    <button 
+                                        onClick={() => setIsCapturingParcelPhoto(true)}
+                                        className="absolute bottom-2 right-2 p-2 bg-white dark:bg-[#1E293B] text-[#4F46E5] dark:text-[#818CF8] rounded-lg shadow-lg hover:bg-gray-50 dark:hover:bg-[#334155] transition-colors border border-gray-100 dark:border-gray-700"
+                                        title={parcel.image ? "Changer la photo" : "Ajouter une photo"}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Section Géométrique */}
                         <div>
                             <h3 className="bsport-label">Géométrie</h3>
@@ -136,7 +212,7 @@ const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, setting
                                                         {parcelManager && (
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); handleDeletePhoto(point.id); }}
-                                                                className="absolute top-0 right-0 bg-[#EF4444] text-white rounded-bl-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                className="absolute top-0 right-0 bg-[#EF4444] text-white rounded-bl-lg p-1 shadow-md hover:bg-red-600 transition-colors z-10"
                                                                 title="Supprimer"
                                                             >
                                                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -155,6 +231,15 @@ const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, setting
                                                     ) : (
                                                         <span className="text-[#94A3B8] text-[10px] font-semibold">No img</span>
                                                     )
+                                                )}
+                                                {parcelManager && (
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); startEditing(point); }}
+                                                        className="absolute top-0 left-0 bg-[#4F46E5] text-white rounded-br-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Modifier"
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                                    </button>
                                                 )}
                                             </div>
                                             <span className="text-[11px] font-bold text-[#0F172A] dark:text-white">B{index + 1}</span>
@@ -177,6 +262,12 @@ const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, setting
             </div>
 
             {/* Nested Modals */}
+            {isCapturingParcelPhoto && (
+                <PhotoCaptureModal 
+                    onCapture={handleParcelPhotoSave} 
+                    onClose={() => setIsCapturingParcelPhoto(false)} 
+                />
+            )}
             {photoTargetPointId !== null && (
                 <PhotoCaptureModal 
                     onCapture={handlePhotoSave} 
@@ -192,6 +283,39 @@ const ParcelDetailsModal: React.FC<ParcelDetailsModalProps> = ({ parcel, setting
                     <button className="absolute top-4 right-4 text-white p-2">
                         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
+                </div>
+            )}
+            {editingPoint && (
+                <div className="fixed inset-0 z-[2200] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setEditingPoint(null)}>
+                    <div className="bg-white dark:bg-[#1E293B] rounded-xl shadow-2xl w-full max-w-xs p-4 space-y-4" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-[#0F172A] dark:text-white">Modifier Sommet</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8]">X</label>
+                                <input 
+                                    type="number" 
+                                    step="any"
+                                    value={editForm.x} 
+                                    onChange={e => setEditForm(prev => ({ ...prev, x: e.target.value }))}
+                                    className="bsport-input w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8]">Y</label>
+                                <input 
+                                    type="number" 
+                                    step="any"
+                                    value={editForm.y} 
+                                    onChange={e => setEditForm(prev => ({ ...prev, y: e.target.value }))}
+                                    className="bsport-input w-full"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button onClick={() => setEditingPoint(null)} className="px-3 py-2 text-sm font-semibold text-[#64748B] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">Annuler</button>
+                            <button onClick={savePointEdit} className="bsport-btn-primary px-4 py-2 text-sm">Enregistrer</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

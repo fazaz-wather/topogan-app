@@ -26,6 +26,16 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, settings, poin
           <div className="p-4 bg-[#4F46E5]/10 rounded-xl border border-[#4F46E5]/20">
               <div className="text-[11px] font-bold text-[#4F46E5] uppercase tracking-wider mb-1">Surface Totale</div>
               <div className="text-2xl font-black text-[#4F46E5]">{formattedArea}</div>
+              {areaUnit === 'ha_a_ca' && (
+                  <div className="text-xs font-medium text-[#4F46E5]/70 mt-1">
+                      {formatArea(results.area, 'squareMeters', precision)}
+                  </div>
+              )}
+              {areaUnit === 'squareMeters' && (
+                  <div className="text-xs font-medium text-[#4F46E5]/70 mt-1">
+                      {formatArea(results.area, 'ha_a_ca', precision)}
+                  </div>
+              )}
           </div>
           <div className="p-4 bg-[#F1F5F9] dark:bg-[#1E293B] rounded-xl border border-[#E2E8F0] dark:border-[#334155]">
               <div className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-1">Nb. Sommets</div>

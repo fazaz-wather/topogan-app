@@ -72,8 +72,20 @@ const SurfaceCalculatorView: React.FC<SurfaceCalculatorViewProps> = (props) => {
                     <div className="flex flex-row w-full md:w-auto items-center gap-4 md:gap-6 divide-x divide-[#E2E8F0] dark:divide-[#334155]">
                         <div className="px-2 md:px-4 first:pl-0 text-left md:text-right flex-1 md:flex-none">
                             <div className="bsport-label">Surface</div>
-                            <div className="text-lg md:text-xl font-black text-[#4F46E5] whitespace-nowrap">
-                                {results ? formatArea(results.area, settings.areaUnit, settings.precision) : '---'}
+                            <div className="flex flex-col items-start md:items-end">
+                                <div className="text-lg md:text-xl font-black text-[#4F46E5] whitespace-nowrap">
+                                    {results ? formatArea(results.area, settings.areaUnit, settings.precision) : '---'}
+                                </div>
+                                {results && settings.areaUnit === 'ha_a_ca' && (
+                                    <div className="text-xs text-gray-500 font-medium mt-0.5">
+                                        {formatArea(results.area, 'squareMeters', settings.precision)}
+                                    </div>
+                                )}
+                                {results && settings.areaUnit === 'squareMeters' && (
+                                    <div className="text-xs text-gray-500 font-medium mt-0.5">
+                                        {formatArea(results.area, 'ha_a_ca', settings.precision)}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="px-2 md:px-4 text-left md:text-right flex-1 md:flex-none">
@@ -82,39 +94,44 @@ const SurfaceCalculatorView: React.FC<SurfaceCalculatorViewProps> = (props) => {
                                 {perimeter > 0 ? `${convertDistance(perimeter, settings.distanceUnit).toFixed(settings.precision)} ${getDistanceUnitLabel(settings.distanceUnit)}` : '---'}
                             </div>
                         </div>
+                        <div className="px-2 md:px-4 text-left md:text-right flex-1 md:flex-none hidden sm:block">
+                            <div className="bsport-label">Bornes</div>
+                            <div className="text-base md:text-lg font-bold text-[#0F172A] dark:text-gray-300 whitespace-nowrap">
+                                {points.length}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Navigation Tabs (Mobile Only) */}
-            <div className="flex-shrink-0 px-4 mt-4 lg:hidden">
-                <div className="flex space-x-1 bg-[#F1F5F9] dark:bg-[#1E293B] p-1 rounded-xl">
+            {/* Floating Navigation Tabs (Mobile & Tablet) */}
+            <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-30 lg:hidden w-auto max-w-[90vw]">
+                <div className="flex items-center p-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 shadow-2xl shadow-black/10 rounded-2xl transition-all hover:scale-[1.02] hover:bg-white/90 dark:hover:bg-gray-900/90">
                     <button
                         onClick={() => setActiveTab('data')}
-                        className={`flex-1 flex items-center justify-center py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'data' ? 'bg-white dark:bg-[#0F172A] text-[#4F46E5] shadow-sm' : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
+                        className={`relative px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300 ${activeTab === 'data' ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
-                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                         Données
                     </button>
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                     <button
                         onClick={() => setActiveTab('tools')}
-                        className={`flex-1 flex items-center justify-center py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'tools' ? 'bg-white dark:bg-[#0F172A] text-[#4F46E5] shadow-sm' : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
+                        className={`relative px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300 ${activeTab === 'tools' ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
-                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" /></svg>
                         Calculs
                     </button>
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
                     <button
                         onClick={() => setActiveTab('results')}
-                        className={`flex-1 flex items-center justify-center py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === 'results' ? 'bg-white dark:bg-[#0F172A] text-[#4F46E5] shadow-sm' : 'text-[#64748B] dark:text-[#94A3B8] hover:bg-[#E2E8F0] dark:hover:bg-[#334155]'}`}
+                        className={`relative px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300 ${activeTab === 'results' ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                     >
-                        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         Rapports
                     </button>
                 </div>
             </div>
 
             {/* Content Area */}
-            <div className="flex-grow overflow-y-auto p-4 scroll-smooth">
+            <div className="flex-grow overflow-y-auto p-4 pb-40 md:pb-24 lg:pb-4 scroll-smooth">
                 <div className="h-full flex flex-col lg:flex-row gap-6">
                     
                     {/* Left Column (Always visible on desktop, tabbed on mobile) */}

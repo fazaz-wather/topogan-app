@@ -376,7 +376,7 @@ const TechnicalPVView: React.FC<TechnicalPVViewProps> = ({ parcel, settings, res
                 .page1-right-col { width: 78%; padding: 8mm 6mm; display: flex; flex-direction: column; position: relative; }
             `}</style>
 
-            <div ref={containerRef} className="flex-1 overflow-auto flex flex-col py-12 gap-16 w-full relative">
+            <div ref={containerRef} className="flex-1 overflow-auto flex flex-col py-12 pb-24 md:pb-12 gap-16 w-full relative">
                 {/* FEUILLET 1 : RECTO (PAGE 4 | PAGE 1) */}
                 <div className="relative bg-white shadow-2xl transition-all duration-300 origin-top mx-auto" style={{ width: `${420 * zoom}mm`, height: `${297 * zoom}mm`, flexShrink: 0 }}>
                     <div className="a3-sheet bg-white flex flex-row pv-font absolute top-0 left-0" style={{ width: '420mm', height: '297mm', transform: `scale(${zoom})`, transformOrigin: 'top left' }}>

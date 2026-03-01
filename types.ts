@@ -22,6 +22,7 @@ export interface Parcel {
   points: Point[];
   color: string;
   isVisible: boolean;
+  image?: string; // Base64 image data for the parcel (cover photo)
   surveyor?: string;
   date?: string;
   bornageHour?: string;

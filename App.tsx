@@ -354,7 +354,7 @@ const App: React.FC = () => {
             </div>
           </header>
 
-          <main className="flex-1 relative bg-gray-50 dark:bg-gray-950 overflow-hidden pb-16 md:pb-0">
+          <main className="flex-1 relative bg-gray-50 dark:bg-gray-950 overflow-hidden">
             {currentView === 'WELCOME' ? (
                 <div className="h-full overflow-y-auto animate-view"><WelcomeView {...commonViewProps} searchTerm={dashboardSearch} /></div>
             ) : currentView === 'MAPPE' ? (

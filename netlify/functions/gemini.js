@@ -1,6 +1,22 @@
 exports.handler = async (event) => {
   try {
+
+    if (event.httpMethod !== "POST") {
+      return {
+        statusCode: 405,
+        body: "Method Not Allowed",
+      };
+    }
+
     const API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!API_KEY) {
+      return {
+        statusCode: 500,
+        body: "API KEY missing",
+      };
+    }
+
     const body = JSON.parse(event.body);
 
     const response = await fetch(
@@ -18,6 +34,7 @@ exports.handler = async (event) => {
       statusCode: 200,
       body: JSON.stringify(data),
     };
+
   } catch (err) {
     return {
       statusCode: 500,

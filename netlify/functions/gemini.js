@@ -14,20 +14,20 @@ exports.handler = async (event) => {
     if (!API_KEY) {
       return {
         statusCode: 500,
-        body: "GEMINI_API_KEY is missing in environment variables",
+        body: "GEMINI_API_KEY is missing",
       };
     }
 
     if (!event.body) {
       return {
         statusCode: 400,
-        body: "Request body is missing",
+        body: "Missing request body",
       };
     }
 
     const body = JSON.parse(event.body);
 
-    if (!body.model || !body.contents) {
+    if (!body.contents) {
       return {
         statusCode: 400,
         body: "Invalid request format",
@@ -38,9 +38,7 @@ exports.handler = async (event) => {
       `https://generativelanguage.googleapis.com/v1beta/models/${body.model}:generateContent?key=${API_KEY}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: body.contents,
         }),
@@ -49,15 +47,8 @@ exports.handler = async (event) => {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return {
-        statusCode: response.status,
-        body: JSON.stringify(data),
-      };
-    }
-
     return {
-      statusCode: 200,
+      statusCode: response.status,
       body: JSON.stringify(data),
     };
 

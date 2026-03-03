@@ -1,6 +1,9 @@
 // services/geminiService.ts
 
-// 🔹 Generic secure Gemini call
+// ==========================
+// 🔹 Generic Gemini Caller
+// ==========================
+
 const callGemini = async (contents: any) => {
   const response = await fetch("/.netlify/functions/gemini", {
     method: "POST",
@@ -14,25 +17,22 @@ const callGemini = async (contents: any) => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Server error");
+    const text = await response.text();
+    throw new Error(text || "Server error");
   }
 
   return await response.json();
 };
 
-// 🔹 Extract text safely
 const extractText = (data: any): string => {
   return (
     data?.candidates?.[0]?.content?.parts?.[0]?.text || ""
   );
 };
 
-
-
-// =====================================
-// 1️⃣ Generate Parcel Description
-// =====================================
+// ==========================
+// 1️⃣ Generate Description
+// ==========================
 
 export const generateParcelDescription = async (
   prompt: string
@@ -46,69 +46,87 @@ export const generateParcelDescription = async (
 
     return extractText(data) || "Aucune description générée.";
   } catch (error) {
-    console.error("Gemini error:", error);
-    return "Erreur lors de la génération de la description.";
+    console.error(error);
+    return "Erreur lors de la génération.";
   }
 };
 
-
-
-// =====================================
-// 2️⃣ Extract Points From File
-// =====================================
+// ==========================
+// 2️⃣ Extract Points
+// ==========================
 
 export const extractPointsFromFile = async (
   prompt: string,
   filePart: any
 ) => {
   try {
-    const data = await callGemini({
-      parts: [
-        { text: prompt },
-        filePart,
-      ],
-    });
+    const data = await callGemini([
+      {
+        parts: [
+          { text: prompt },
+          filePart,
+        ],
+      },
+    ]);
 
-    const text = extractText(data);
+    let text = extractText(data);
 
-    if (!text) {
-      throw new Error("Réponse vide");
-    }
+    if (!text) throw new Error("Empty response");
+
+    text = text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/, "")
+      .trim();
 
     return JSON.parse(text);
+
   } catch (error) {
-    console.error("Extraction error:", error);
-    throw new Error("Impossible d'extraire les points du fichier.");
+    console.error(error);
+    throw new Error("Impossible d'extraire les points.");
   }
 };
 
-
-
-// =====================================
-// 3️⃣ Extract Owner Info From Image
-// =====================================
+// ==========================
+// 3️⃣ OCR CIN
+// ==========================
 
 export const extractOwnerInfoFromImage = async (
   prompt: string,
   filePart: any
 ) => {
   try {
-    const data = await callGemini({
-      parts: [
-        { text: prompt },
-        filePart,
-      ],
-    });
+    const data = await callGemini([
+      {
+        parts: [
+          { text: prompt },
+          filePart,
+        ],
+      },
+    ]);
 
-    const text = extractText(data);
+    let text = extractText(data);
 
-    if (!text) {
-      throw new Error("Réponse vide");
-    }
+    if (!text) throw new Error("Empty response");
 
-    return JSON.parse(text);
+    text = text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/, "")
+      .trim();
+
+    const parsed = JSON.parse(text);
+
+    return {
+      nom: parsed.nom || "",
+      prenom: parsed.prenom || "",
+      cin: parsed.cin || "",
+      validite: parsed.validite || "",
+      adresse: parsed.adresse || "",
+    };
+
   } catch (error) {
-    console.error("OCR error:", error);
-    throw new Error("Impossible d'extraire les informations.");
+    console.error(error);
+    throw new Error("Impossible d'extraire les informations de la CIN.");
   }
 };
